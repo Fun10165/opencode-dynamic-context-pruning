@@ -305,7 +305,9 @@ export class Janitor {
                     }
 
                     // Format the message with tool details
-                    let message = `Pruned ${finalPrunedIds.length} tool output${finalPrunedIds.length > 1 ? 's' : ''} from context (~${estimatedTokensSaved.toLocaleString()} tokens saved)\n`
+                    const toolText = finalPrunedIds.length === 1 ? 'tool' : 'tools';
+                    const title = `Pruned ${finalPrunedIds.length} ${toolText} from context`;
+                    let message = `~${estimatedTokensSaved.toLocaleString()} tokens saved\n`
 
                     for (const [toolName, params] of toolsSummary.entries()) {
                         if (params.length > 0) {
@@ -327,7 +329,7 @@ export class Janitor {
 
                     await this.client.tui.showToast({
                         body: {
-                            title: "Context Pruned",
+                            title: title,
                             message: message.trim(),
                             variant: "success",
                             duration: 8000 // Longer duration since we're showing more info
