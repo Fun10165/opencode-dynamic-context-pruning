@@ -4,6 +4,7 @@ import type { Logger } from "./logger"
 import type { StateManager } from "./state"
 import { buildAnalysisPrompt } from "./prompt"
 import { selectModel, extractModelFromSession } from "./model-selector"
+import { estimateTokensBatch, formatTokenCount } from "./tokenizer"
 
 export class Janitor {
     constructor(
@@ -339,17 +340,32 @@ export class Janitor {
                 newlyPrunedIds: newlyPrunedIds
             })
 
-            // Calculate approximate size saved from newly pruned tool outputs
-            let totalCharsSaved = 0
+            // Calculate token savings from newly pruned tool outputs
+            // Use accurate tokenization with gpt-tokenizer
+            let totalTokensSaved = 0
+            const outputsToTokenize: string[] = []
+            
             for (const prunedId of newlyPrunedIds) {
                 const output = toolOutputs.get(prunedId)
                 if (output) {
-                    totalCharsSaved += output.length
+                    outputsToTokenize.push(output)
                 }
             }
-
-            // Rough token estimate (1 token ≈ 4 characters for English text)
-            const estimatedTokensSaved = Math.round(totalCharsSaved / 4)
+            
+            if (outputsToTokenize.length > 0) {
+                // Use batch tokenization for efficiency
+                const tokenCounts = estimateTokensBatch(outputsToTokenize, this.logger)
+                totalTokensSaved = tokenCounts.reduce((sum, count) => sum + count, 0)
+                
+                this.logger.debug("janitor", "Token estimation complete", {
+                    sessionID,
+                    outputCount: outputsToTokenize.length,
+                    totalTokens: totalTokensSaved,
+                    avgTokensPerOutput: Math.round(totalTokensSaved / outputsToTokenize.length)
+                })
+            }
+            
+            const estimatedTokensSaved = totalTokensSaved
 
             // Merge newly pruned IDs with existing ones (using expanded IDs)
             const allPrunedIds = [...new Set([...alreadyPrunedIds, ...finalPrunedIds])]
@@ -448,11 +464,9 @@ export class Janitor {
 
                     // Format the message with tool details using improved UI
                     const toolText = newlyPrunedIds.length === 1 ? 'tool' : 'tools';
-                    const tokensFormatted = estimatedTokensSaved >= 1000 
-                        ? `~${Math.round(estimatedTokensSaved / 1000)}K` 
-                        : `~${estimatedTokensSaved}`
+                    const tokensFormatted = formatTokenCount(estimatedTokensSaved)
                     
-                    let message = `🧹 DCP: Saved ${tokensFormatted} tokens (${newlyPrunedIds.length} ${toolText} pruned)\n`
+                    let message = `🧹 DCP: Saved ~${tokensFormatted} tokens (${newlyPrunedIds.length} ${toolText} pruned)\n`
 
                     for (const [toolName, params] of toolsSummary.entries()) {
                         if (params.length > 0) {
@@ -479,7 +493,6 @@ export class Janitor {
                         sessionID,
                         prunedCount: newlyPrunedIds.length,
                         estimatedTokensSaved,
-                        totalCharsSaved,
                         toolsSummary: Array.from(toolsSummary.entries())
                     })
                 } catch (toastError: any) {
