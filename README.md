@@ -6,23 +6,9 @@ Automatically reduces token usage in OpenCode by removing obsolete tool outputs 
 
 ## What It Does
 
-This plugin automatically optimizes token usage by identifying and removing redundant or obsolete tool outputs from your conversation history. It operates in two modes:
+This plugin automatically optimizes token usage by identifying and removing redundant or obsolete tool outputs from your conversation history.
 
-### Pruning Modes
-
-**Auto Mode** (`"auto"`): Fast, deterministic duplicate removal
-- Removes duplicate tool calls (same tool + identical parameters)
-- Keeps only the most recent occurrence of each duplicate
-- Zero LLM inference costs
-- Instant, predictable results
-
-**Smart Mode** (`"smart"`): Comprehensive intelligent pruning (recommended)
-- Phase 1: Automatic duplicate removal (same as auto mode)
-- Phase 2: AI analysis to identify obsolete outputs (superseded information, dead-end exploration, etc.)
-- Maximum token savings
-- Small LLM cost for analysis (reduced by deduplication first)
-
-When your session becomes idle, the plugin analyzes your conversation and prunes tool outputs that are no longer relevant, saving tokens and reducing costs.
+![DCP in action](dcp-demo.png)
 
 ## Installation
 
@@ -39,9 +25,18 @@ Add to your OpenCode configuration:
 }
 ```
 
+> **Note:** OpenCode's `plugin` arrays are not merged between global and project configs—project config completely overrides global. If you have plugins in your global config and add a project config, include all desired plugins in the project config.
+
 Restart OpenCode. The plugin will automatically start optimizing your sessions.
 
 ## Configuration
+
+DCP uses its own configuration file, separate from OpenCode's `opencode.json`:
+
+- **Global:** `~/.config/opencode/dcp.jsonc`
+- **Project:** `.opencode/dcp.jsonc`
+
+The global config is automatically created on first run. Create a project config to override settings per-project.
 
 ### Available Options
 
@@ -72,86 +67,9 @@ Example configuration:
 
 ### Configuration Hierarchy
 
-1. **Built-in defaults** → 2. **Global config** (`~/.config/opencode/dcp.jsonc`) → 3. **Project config** (`.opencode/dcp.jsonc`)
-
-The global config is automatically created on first run. Create project configs manually to override settings per-project:
-
-```bash
-mkdir -p .opencode
-cat > .opencode/dcp.jsonc << 'EOF'
-{
-  "debug": true,
-  "pruningMode": "auto"
-}
-EOF
-```
+Settings are merged in order: **Built-in defaults** → **Global config** → **Project config**
 
 After modifying configuration, restart OpenCode for changes to take effect.
-
-### Choosing a Pruning Mode
-
-**Use Auto Mode (`"auto"`) when:**
-- Minimizing costs is critical (zero LLM inference for pruning)
-- You have many repetitive tool calls (file re-reads, repeated commands)
-- You want predictable, deterministic behavior
-- You're debugging or testing and need consistent results
-
-**Use Smart Mode (`"smart"`) when:**
-- You want maximum token savings (recommended for most users)
-- Your workflow has both duplicates and obsolete exploration
-- You're willing to incur small LLM costs for comprehensive pruning
-- You want the plugin to intelligently identify superseded information
-
-**Example notification formats:**
-
-**Detailed mode** (default):
-
-Auto mode:
-```
-🧹 DCP: Saved ~1.2K tokens (5 duplicate tools removed)
-
-read (3 duplicates):
-  ~/project/src/index.ts (2× duplicate)
-  ~/project/lib/utils.ts (1× duplicate)
-
-bash (2 duplicates):
-  Run tests (2× duplicate)
-```
-
-Smart mode:
-```
-🧹 DCP: Saved ~3.4K tokens (8 tools pruned)
-
-📦 Duplicates removed (5):
-  read:
-    ~/project/src/index.ts (3×)
-    ~/project/lib/utils.ts (2×)
-  bash:
-    Run tests (2×)
-
-🤖 LLM analysis (3):
-  grep (2):
-    pattern: "old.*function"
-    pattern: "deprecated"
-  list (1):
-    ~/project/temp
-```
-
-**Minimal mode** (`"pruning_summary": "minimal"`):
-```
-🧹 DCP: Saved ~3.4K tokens (8 tools pruned)
-```
-
-**Off mode** (`"pruning_summary": "off"`):
-```
-(No notification displayed - silent pruning)
-```
-
-To check the latest available version:
-
-```bash
-npm view @tarquinen/opencode-dcp version
-```
 
 ### Version Pinning
 
@@ -160,7 +78,7 @@ If you want to ensure a specific version is always used or update your version, 
 ```json
 {
   "plugin": [
-    "@tarquinen/opencode-dcp@0.2.7"
+    "@tarquinen/opencode-dcp@0.3.10"
   ]
 }
 ```

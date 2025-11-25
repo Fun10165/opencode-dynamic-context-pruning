@@ -2,8 +2,7 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { getConfig } from "./lib/config"
 import { Logger } from "./lib/logger"
-import { StateManager } from "./lib/state"
-import { Janitor } from "./lib/janitor"
+import { Janitor, type SessionStats } from "./lib/janitor"
 
 /**
  * Checks if a session is a subagent (child session)
@@ -34,10 +33,11 @@ const plugin: Plugin = (async (ctx) => {
 
     // Logger uses ~/.config/opencode/logs/dcp/ for consistent log location
     const logger = new Logger(config.debug)
-    const stateManager = new StateManager()
+    const prunedIdsState = new Map<string, string[]>()
+    const statsState = new Map<string, SessionStats>()
     const toolParametersCache = new Map<string, any>() // callID -> parameters
     const modelCache = new Map<string, { providerID: string; modelID: string }>() // sessionID -> model info
-    const janitor = new Janitor(ctx.client, stateManager, logger, toolParametersCache, config.protectedTools, modelCache, config.model, config.showModelErrorToasts, config.pruningMode, config.pruning_summary, ctx.directory)
+    const janitor = new Janitor(ctx.client, prunedIdsState, statsState, logger, toolParametersCache, config.protectedTools, modelCache, config.model, config.showModelErrorToasts, config.pruningMode, config.pruning_summary, ctx.directory)
 
     const cacheToolParameters = (messages: any[]) => {
         for (const message of messages) {
@@ -87,8 +87,8 @@ const plugin: Plugin = (async (ctx) => {
                     if (allSessions.data) {
                         for (const session of allSessions.data) {
                             if (session.parentID) continue // Skip subagent sessions
-                            const prunedIds = await stateManager.get(session.id)
-                            prunedIds.forEach(id => allPrunedIds.add(id))
+                            const prunedIds = prunedIdsState.get(session.id) ?? []
+                            prunedIds.forEach((id: string) => allPrunedIds.add(id))
                         }
                     }
 

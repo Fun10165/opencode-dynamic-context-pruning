@@ -1,15 +1,20 @@
 import { z } from "zod"
 import type { Logger } from "./logger"
-import type { StateManager, SessionStats } from "./state"
 import { buildAnalysisPrompt } from "./prompt"
 import { selectModel, extractModelFromSession } from "./model-selector"
 import { estimateTokensBatch, formatTokenCount } from "./tokenizer"
 import { detectDuplicates, extractParameterKey } from "./deduplicator"
 
+export interface SessionStats {
+    totalToolsPruned: number
+    totalTokensSaved: number
+}
+
 export class Janitor {
     constructor(
         private client: any,
-        private stateManager: StateManager,
+        private prunedIdsState: Map<string, string[]>,
+        private statsState: Map<string, SessionStats>,
         private logger: Logger,
         private toolParametersCache: Map<string, any>,
         private protectedTools: string[],
@@ -114,7 +119,7 @@ export class Janitor {
             }
 
             // Get already pruned IDs to filter them out
-            const alreadyPrunedIds = await this.stateManager.get(sessionID)
+            const alreadyPrunedIds = this.prunedIdsState.get(sessionID) ?? []
             const unprunedToolCallIds = toolCallIds.filter(id => !alreadyPrunedIds.includes(id))
 
             // If there are no unpruned tool calls, skip analysis
@@ -269,7 +274,12 @@ export class Janitor {
             const tokensSaved = await this.calculateTokensSaved(finalNewlyPrunedIds, toolOutputs)
 
             // Accumulate session stats (for showing cumulative totals in UI)
-            const sessionStats = await this.stateManager.addStats(sessionID, finalNewlyPrunedIds.length, tokensSaved)
+            const currentStats = this.statsState.get(sessionID) ?? { totalToolsPruned: 0, totalTokensSaved: 0 }
+            const sessionStats: SessionStats = {
+                totalToolsPruned: currentStats.totalToolsPruned + finalNewlyPrunedIds.length,
+                totalTokensSaved: currentStats.totalTokensSaved + tokensSaved
+            }
+            this.statsState.set(sessionID, sessionStats)
 
             if (this.pruningMode === "auto") {
                 await this.sendAutoModeNotification(
@@ -296,7 +306,7 @@ export class Janitor {
             // ============================================================
             // Merge newly pruned IDs with existing ones (using expanded IDs)
             const allPrunedIds = [...new Set([...alreadyPrunedIds, ...finalPrunedIds])]
-            await this.stateManager.set(sessionID, allPrunedIds)
+            this.prunedIdsState.set(sessionID, allPrunedIds)
 
             // Log final summary
             // Format: "Pruned 5/5 tools (~4.2K tokens), 0 kept" or with breakdown if both duplicate and llm
@@ -318,9 +328,38 @@ export class Janitor {
     /**
      * Helper function to shorten paths for display
      */
-    private shortenPath(path: string): string {
-        // Replace home directory with ~
+    private shortenPath(input: string): string {
+        // Handle compound strings like: "pattern" in /absolute/path
+        // Extract and shorten just the path portion
+        const inPathMatch = input.match(/^(.+) in (.+)$/)
+        if (inPathMatch) {
+            const prefix = inPathMatch[1]
+            const pathPart = inPathMatch[2]
+            const shortenedPath = this.shortenSinglePath(pathPart)
+            return `${prefix} in ${shortenedPath}`
+        }
+        
+        return this.shortenSinglePath(input)
+    }
+    
+    /**
+     * Shorten a single path string
+     */
+    private shortenSinglePath(path: string): string {
         const homeDir = require('os').homedir()
+        
+        // Strip working directory FIRST (before ~ replacement) for cleaner relative paths
+        if (this.workingDirectory) {
+            if (path.startsWith(this.workingDirectory + '/')) {
+                return path.slice(this.workingDirectory.length + 1)
+            }
+            // Exact match (the directory itself)
+            if (path === this.workingDirectory) {
+                return '.'
+            }
+        }
+        
+        // Replace home directory with ~
         if (path.startsWith(homeDir)) {
             path = '~' + path.slice(homeDir.length)
         }
@@ -331,20 +370,17 @@ export class Janitor {
             return `${nodeModulesMatch[1]}/${nodeModulesMatch[2]}`
         }
 
-        // Strip working directory to show relative paths
+        // Try matching against ~ version of working directory (for paths already with ~)
         if (this.workingDirectory) {
-            // Try to match against the absolute working directory first
-            if (path.startsWith(this.workingDirectory + '/')) {
-                return path.slice(this.workingDirectory.length + 1)
-            }
-            
-            // Also try matching against ~ version of working directory
             const workingDirWithTilde = this.workingDirectory.startsWith(homeDir)
                 ? '~' + this.workingDirectory.slice(homeDir.length)
                 : null
             
             if (workingDirWithTilde && path.startsWith(workingDirWithTilde + '/')) {
                 return path.slice(workingDirWithTilde.length + 1)
+            }
+            if (workingDirWithTilde && path === workingDirWithTilde) {
+                return '.'
             }
         }
 
@@ -468,7 +504,7 @@ export class Janitor {
         
         // Add session totals if there's been more than one pruning run
         if (sessionStats.totalToolsPruned > totalPruned) {
-            message += ` │ Session: ${sessionStats.totalToolsPruned} tools, ~${formatTokenCount(sessionStats.totalTokensSaved)} tokens`
+            message += ` │ Session: ~${formatTokenCount(sessionStats.totalTokensSaved)} tokens, ${sessionStats.totalToolsPruned} tools`
         }
 
         await this.sendIgnoredMessage(sessionID, message)
@@ -503,7 +539,7 @@ export class Janitor {
         
         // Add session totals if there's been more than one pruning run
         if (sessionStats.totalToolsPruned > deduplicatedIds.length) {
-            message += ` │ Session: ${sessionStats.totalToolsPruned} tools, ~${formatTokenCount(sessionStats.totalTokensSaved)} tokens`
+            message += ` │ Session: ~${formatTokenCount(sessionStats.totalTokensSaved)} tokens, ${sessionStats.totalToolsPruned} tools`
         }
         message += '\n'
 
@@ -570,7 +606,7 @@ export class Janitor {
         
         // Add session totals if there's been more than one pruning run
         if (sessionStats.totalToolsPruned > totalPruned) {
-            message += ` │ Session: ${sessionStats.totalToolsPruned} tools, ~${formatTokenCount(sessionStats.totalTokensSaved)} tokens`
+            message += ` │ Session: ~${formatTokenCount(sessionStats.totalTokensSaved)} tokens, ${sessionStats.totalToolsPruned} tools`
         }
         message += '\n'
 
