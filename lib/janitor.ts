@@ -261,7 +261,7 @@ export class Janitor {
                         })
                     }
 
-                    const modelSelection = await selectModel(currentModelInfo, this.logger, this.configModel)
+                    const modelSelection = await selectModel(currentModelInfo, this.logger, this.configModel, this.workingDirectory)
 
                     this.logger.info("janitor", "Model selected for analysis", {
                         sessionID,

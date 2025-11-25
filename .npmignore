@@ -18,3 +18,6 @@ lib/
 # Git
 .git/
 .gitignore
+
+# OpenCode
+.opencode/

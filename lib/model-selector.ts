@@ -69,13 +69,13 @@ function shouldSkipProvider(providerID: string): boolean {
  * Attempts to import OpencodeAI with retry logic to handle plugin initialization timing issues.
  * Some providers (like openai via @openhax/codex) may not be fully initialized on first attempt.
  */
-async function importOpencodeAI(logger?: Logger, maxRetries: number = 3, delayMs: number = 100): Promise<any> {
+async function importOpencodeAI(logger?: Logger, maxRetries: number = 3, delayMs: number = 100, workspaceDir?: string): Promise<any> {
     let lastError: Error | undefined;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             const { OpencodeAI } = await import('@tarquinen/opencode-auth-provider');
-            return new OpencodeAI();
+            return new OpencodeAI({ workspaceDir });
         } catch (error: any) {
             lastError = error;
             
@@ -117,13 +117,15 @@ async function importOpencodeAI(logger?: Logger, maxRetries: number = 3, delayMs
 export async function selectModel(
     currentModel?: ModelInfo, 
     logger?: Logger,
-    configModel?: string
+    configModel?: string,
+    workspaceDir?: string
 ): Promise<ModelSelectionResult> {
-    logger?.info('model-selector', 'Model selection started', { currentModel, configModel });
+    logger?.info('model-selector', 'Model selection started', { currentModel, configModel, workspaceDir });
     
     // Lazy import with retry logic - handles plugin initialization timing issues
     // Some providers (like openai via @openhax/codex) may not be ready on first attempt
-    const opencodeAI = await importOpencodeAI(logger);
+    // Pass workspaceDir so OpencodeAI can find project-level config and plugins
+    const opencodeAI = await importOpencodeAI(logger, 3, 100, workspaceDir);
 
     let failedModelInfo: ModelInfo | undefined;
 
