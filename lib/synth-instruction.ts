@@ -7,6 +7,11 @@ export function createToolTracker(): ToolTracker {
     return { seenToolResultIds: new Set(), toolResultCount: 0 }
 }
 
+export function resetToolTrackerCount(tracker: ToolTracker, freq: number): void {
+    const currentBucket = Math.floor(tracker.toolResultCount / freq)
+    tracker.toolResultCount = currentBucket * freq
+}
+
 /** Adapter interface for format-specific message operations */
 interface MessageFormatAdapter {
     countToolResults(messages: any[], tracker: ToolTracker): number
