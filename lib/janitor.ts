@@ -44,12 +44,13 @@ export class Janitor {
         private workingDirectory?: string
     ) { }
 
-    private async sendIgnoredMessage(sessionID: string, text: string) {
+    private async sendIgnoredMessage(sessionID: string, text: string, agent?: string) {
         try {
             await this.client.session.prompt({
                 path: { id: sessionID },
                 body: {
                     noReply: true,
+                    agent: agent,
                     parts: [{
                         type: 'text',
                         text: text,
@@ -94,6 +95,18 @@ export class Janitor {
 
             if (!messages || messages.length < 3) {
                 return null
+            }
+
+            // Extract the current agent from the last user message to preserve agent context
+            // Following the same pattern as OpenCode's server.ts
+            let currentAgent: string | undefined = undefined
+            for (let i = messages.length - 1; i >= 0; i--) {
+                const msg = messages[i]
+                const info = msg.info
+                if (info?.role === 'user') {
+                    currentAgent = info.agent || 'build'
+                    break
+                }
             }
 
             const toolCallIds: string[] = []
@@ -299,7 +312,8 @@ export class Janitor {
                     expandedLlmPrunedIds,
                     toolMetadata,
                     tokensSaved,
-                    sessionStats
+                    sessionStats,
+                    currentAgent
                 )
             } else {
                 await this.sendAutoModeNotification(
@@ -307,7 +321,8 @@ export class Janitor {
                     deduplicatedIds,
                     deduplicationDetails,
                     tokensSaved,
-                    sessionStats
+                    sessionStats,
+                    currentAgent
                 )
             }
 
@@ -534,7 +549,8 @@ export class Janitor {
         sessionID: string,
         totalPruned: number,
         tokensSaved: number,
-        sessionStats: SessionStats
+        sessionStats: SessionStats,
+        agent?: string
     ) {
         if (totalPruned === 0) return
 
@@ -547,7 +563,7 @@ export class Janitor {
             message += ` │ Session: ~${formatTokenCount(sessionStats.totalTokensSaved)} tokens, ${sessionStats.totalToolsPruned} tools`
         }
 
-        await this.sendIgnoredMessage(sessionID, message)
+        await this.sendIgnoredMessage(sessionID, message, agent)
     }
 
     private async sendAutoModeNotification(
@@ -555,13 +571,14 @@ export class Janitor {
         deduplicatedIds: string[],
         deduplicationDetails: Map<string, any>,
         tokensSaved: number,
-        sessionStats: SessionStats
+        sessionStats: SessionStats,
+        agent?: string
     ) {
         if (deduplicatedIds.length === 0) return
         if (this.pruningSummary === 'off') return
 
         if (this.pruningSummary === 'minimal') {
-            await this.sendMinimalNotification(sessionID, deduplicatedIds.length, tokensSaved, sessionStats)
+            await this.sendMinimalNotification(sessionID, deduplicatedIds.length, tokensSaved, sessionStats, agent)
             return
         }
 
@@ -590,7 +607,7 @@ export class Janitor {
             }
         }
 
-        await this.sendIgnoredMessage(sessionID, message.trim())
+        await this.sendIgnoredMessage(sessionID, message.trim(), agent)
     }
 
     formatPruningResultForTool(result: PruningResult): string {
@@ -621,14 +638,15 @@ export class Janitor {
         llmPrunedIds: string[],
         toolMetadata: Map<string, any>,
         tokensSaved: number,
-        sessionStats: SessionStats
+        sessionStats: SessionStats,
+        agent?: string
     ) {
         const totalPruned = deduplicatedIds.length + llmPrunedIds.length
         if (totalPruned === 0) return
         if (this.pruningSummary === 'off') return
 
         if (this.pruningSummary === 'minimal') {
-            await this.sendMinimalNotification(sessionID, totalPruned, tokensSaved, sessionStats)
+            await this.sendMinimalNotification(sessionID, totalPruned, tokensSaved, sessionStats, agent)
             return
         }
 
@@ -680,6 +698,6 @@ export class Janitor {
             }
         }
 
-        await this.sendIgnoredMessage(sessionID, message.trim())
+        await this.sendIgnoredMessage(sessionID, message.trim(), agent)
     }
 }
