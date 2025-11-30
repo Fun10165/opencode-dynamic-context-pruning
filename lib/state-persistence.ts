@@ -105,7 +105,3 @@ export async function loadSessionState(
         return null;
     }
 }
-
-export function getStorageDir(): string {
-    return STORAGE_DIR;
-}
