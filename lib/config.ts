@@ -30,7 +30,7 @@ export interface ConfigResult {
 const defaultConfig: PluginConfig = {
     enabled: true,
     debug: false,
-    protectedTools: ['task', 'todowrite', 'todoread', 'prune (DCP)'],
+    protectedTools: ['task', 'todowrite', 'todoread', 'prune'],
     showModelErrorToasts: true,
     strictModelSelection: false,
     pruning_summary: 'detailed',
@@ -123,7 +123,7 @@ function createDefaultConfig(): void {
   "pruning_summary": "detailed",
   // How often to nudge the AI to prune (every N tool results, 0 = disabled)
   "nudge_freq": 10
-  // Additional tools to protect from pruning (merged with built-in: task, todowrite, todoread, prune (DCP))
+  // Additional tools to protect from pruning (merged with built-in: task, todowrite, todoread, prune)
   // "protectedTools": ["bash"]
 }
 `
