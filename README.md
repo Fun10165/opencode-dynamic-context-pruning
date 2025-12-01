@@ -31,7 +31,7 @@ DCP implements two complementary strategies:
 
 ## Context Pruning Tool
 
-When `strategies.onTool` is enabled, DCP exposes a `context_pruning` tool to Opencode that the AI can call to trigger pruning on demand.
+When `strategies.onTool` is enabled, DCP exposes a `prune` tool to Opencode that the AI can call to trigger pruning on demand.
 
 When `nudge_freq` is enabled, injects reminders (every `nudge_freq` tool results) prompting the AI to consider pruning when appropriate.
 
@@ -60,7 +60,7 @@ DCP uses its own config file (`~/.config/opencode/dcp.jsonc` or `.opencode/dcp.j
 | `strictModelSelection` | `false` | Only run AI analysis with session or configured model (disables fallback models) |
 | `pruning_summary` | `"detailed"` | `"off"`, `"minimal"`, or `"detailed"` |
 | `nudge_freq` | `10` | How often to remind AI to prune (lower = more frequent) |
-| `protectedTools` | `["task", "todowrite", "todoread", "context_pruning"]` | Tools that are never pruned |
+| `protectedTools` | `["task", "todowrite", "todoread", "prune"]` | Tools that are never pruned |
 | `strategies.onIdle` | `["deduplication", "ai-analysis"]` | Strategies for automatic pruning |
 | `strategies.onTool` | `["deduplication", "ai-analysis"]` | Strategies when AI calls `context_pruning` |
 
@@ -73,7 +73,7 @@ DCP uses its own config file (`~/.config/opencode/dcp.jsonc` or `.opencode/dcp.j
     "onIdle": ["deduplication", "ai-analysis"],
     "onTool": ["deduplication", "ai-analysis"]
   },
-  "protectedTools": ["task", "todowrite", "todoread", "context_pruning"]
+  "protectedTools": ["task", "todowrite", "todoread", "prune"]
 }
 ```
 
