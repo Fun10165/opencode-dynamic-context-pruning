@@ -45,7 +45,7 @@ export function createPruningTool(
             const sessionId = toolCtx.sessionID
 
             if (await isSubagentSession(client, sessionId)) {
-                return "Pruning is unavailable in subagent sessions. Do not call this tool again. Continue with your current task."
+                return "Pruning is unavailable in subagent sessions. Do not call this tool again. Continue with your current task - if you were in the middle of work, proceed with your next step. If you had just finished, provide your final summary/findings to return to the main agent."
             }
 
             if (!args.ids || args.ids.length === 0) {
