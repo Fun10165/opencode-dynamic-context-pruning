@@ -104,7 +104,7 @@ function formatStatsHeader(
     const totalTokensPadded = totalTokensStr.padStart(maxTokenLen)
 
     return [
-        `▣ DCP | ${totalTokensPadded} saved`,
+        `▣ DCP | ${totalTokensPadded} saved total`,
     ].join('\n')
 }
 
