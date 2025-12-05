@@ -1,10 +1,69 @@
-import type { FormatDescriptor, ToolOutput } from "../types"
-import { PRUNED_CONTENT_MESSAGE } from "../types"
+import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
 import type { PluginState } from "../../state"
 import type { Logger } from "../../logger"
-import type { ToolTracker } from "../../api-formats/synth-instruction"
-import { injectSynthGemini, trackNewToolResultsGemini } from "../../api-formats/synth-instruction"
-import { injectPrunableListGemini } from "../../api-formats/prunable-list"
+
+// ============================================================================
+// Format-specific injection helpers
+// ============================================================================
+
+function isNudgeContent(content: any, nudgeText: string): boolean {
+    if (Array.isArray(content.parts) && content.parts.length === 1) {
+        const part = content.parts[0]
+        return part?.text === nudgeText
+    }
+    return false
+}
+
+function injectSynth(contents: any[], instruction: string, nudgeText: string): boolean {
+    for (let i = contents.length - 1; i >= 0; i--) {
+        const content = contents[i]
+        if (content.role === 'user' && Array.isArray(content.parts)) {
+            // Skip nudge messages - find real user message
+            if (isNudgeContent(content, nudgeText)) continue
+            
+            const alreadyInjected = content.parts.some(
+                (part: any) => part?.text && typeof part.text === 'string' && part.text.includes(instruction)
+            )
+            if (alreadyInjected) return false
+            content.parts.push({ text: instruction })
+            return true
+        }
+    }
+    return false
+}
+
+function trackNewToolResults(contents: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
+    let newCount = 0
+    let positionCounter = 0
+    for (const content of contents) {
+        if (!Array.isArray(content.parts)) continue
+        for (const part of content.parts) {
+            if (part.functionResponse) {
+                const positionId = `gemini_pos_${positionCounter}`
+                positionCounter++
+                if (!tracker.seenToolResultIds.has(positionId)) {
+                    tracker.seenToolResultIds.add(positionId)
+                    const toolName = part.functionResponse.name
+                    if (!toolName || !protectedTools.has(toolName)) {
+                        tracker.toolResultCount++
+                        newCount++
+                    }
+                }
+            }
+        }
+    }
+    return newCount
+}
+
+function injectPrunableList(contents: any[], injection: string): boolean {
+    if (!injection) return false
+    contents.push({ role: 'user', parts: [{ text: injection }] })
+    return true
+}
+
+// ============================================================================
+// Format Descriptor
+// ============================================================================
 
 /**
  * Format descriptor for Google/Gemini API.
@@ -36,15 +95,15 @@ export const geminiFormat: FormatDescriptor = {
     },
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {
-        return injectSynthGemini(data, instruction, nudgeText)
+        return injectSynth(data, instruction, nudgeText)
     },
 
     trackNewToolResults(data: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-        return trackNewToolResultsGemini(data, tracker, protectedTools)
+        return trackNewToolResults(data, tracker, protectedTools)
     },
 
     injectPrunableList(data: any[], injection: string): boolean {
-        return injectPrunableListGemini(data, injection)
+        return injectPrunableList(data, injection)
     },
 
     extractToolOutputs(data: any[], state: PluginState): ToolOutput[] {

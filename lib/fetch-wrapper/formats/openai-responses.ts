@@ -1,11 +1,68 @@
-import type { FormatDescriptor, ToolOutput } from "../types"
-import { PRUNED_CONTENT_MESSAGE } from "../types"
+import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
 import type { PluginState } from "../../state"
 import type { Logger } from "../../logger"
-import type { ToolTracker } from "../../api-formats/synth-instruction"
 import { cacheToolParametersFromInput } from "../../state/tool-cache"
-import { injectSynthResponses, trackNewToolResultsResponses } from "../../api-formats/synth-instruction"
-import { injectPrunableListResponses } from "../../api-formats/prunable-list"
+
+// ============================================================================
+// Format-specific injection helpers
+// ============================================================================
+
+function isNudgeItem(item: any, nudgeText: string): boolean {
+    if (typeof item.content === 'string') {
+        return item.content === nudgeText
+    }
+    return false
+}
+
+function injectSynth(input: any[], instruction: string, nudgeText: string): boolean {
+    for (let i = input.length - 1; i >= 0; i--) {
+        const item = input[i]
+        if (item.type === 'message' && item.role === 'user') {
+            // Skip nudge messages - find real user message
+            if (isNudgeItem(item, nudgeText)) continue
+            
+            if (typeof item.content === 'string') {
+                if (item.content.includes(instruction)) return false
+                item.content = item.content + '\n\n' + instruction
+            } else if (Array.isArray(item.content)) {
+                const alreadyInjected = item.content.some(
+                    (part: any) => part?.type === 'input_text' && typeof part.text === 'string' && part.text.includes(instruction)
+                )
+                if (alreadyInjected) return false
+                item.content.push({ type: 'input_text', text: instruction })
+            }
+            return true
+        }
+    }
+    return false
+}
+
+function trackNewToolResults(input: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
+    let newCount = 0
+    for (const item of input) {
+        if (item.type === 'function_call_output' && item.call_id) {
+            if (!tracker.seenToolResultIds.has(item.call_id)) {
+                tracker.seenToolResultIds.add(item.call_id)
+                const toolName = tracker.getToolName?.(item.call_id)
+                if (!toolName || !protectedTools.has(toolName)) {
+                    tracker.toolResultCount++
+                    newCount++
+                }
+            }
+        }
+    }
+    return newCount
+}
+
+function injectPrunableList(input: any[], injection: string): boolean {
+    if (!injection) return false
+    input.push({ type: 'message', role: 'user', content: injection })
+    return true
+}
+
+// ============================================================================
+// Format Descriptor
+// ============================================================================
 
 /**
  * Format descriptor for OpenAI Responses API (GPT-5 models via sdk.responses()).
@@ -31,15 +88,15 @@ export const openaiResponsesFormat: FormatDescriptor = {
     },
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {
-        return injectSynthResponses(data, instruction, nudgeText)
+        return injectSynth(data, instruction, nudgeText)
     },
 
     trackNewToolResults(data: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-        return trackNewToolResultsResponses(data, tracker, protectedTools)
+        return trackNewToolResults(data, tracker, protectedTools)
     },
 
     injectPrunableList(data: any[], injection: string): boolean {
-        return injectPrunableListResponses(data, injection)
+        return injectPrunableList(data, injection)
     },
 
     extractToolOutputs(data: any[], state: PluginState): ToolOutput[] {
