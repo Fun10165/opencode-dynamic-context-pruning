@@ -1,6 +1,5 @@
 import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
 import type { PluginState } from "../../state"
-import type { Logger } from "../../logger"
 
 function isNudgeContent(content: any, nudgeText: string): boolean {
     if (Array.isArray(content.parts) && content.parts.length === 1) {
@@ -70,10 +69,6 @@ export const geminiFormat: FormatDescriptor = {
 
     getDataArray(body: any): any[] | undefined {
         return body.contents
-    },
-
-    cacheToolParameters(_data: any[], _state: PluginState, _logger?: Logger): void {
-        // No-op: Gemini tool parameters are captured via message events in hooks.ts
     },
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {

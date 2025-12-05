@@ -2,6 +2,7 @@ import type { FetchHandlerContext, FetchHandlerResult, FormatDescriptor, PrunedI
 import { type PluginState, ensureSessionRestored } from "../state"
 import type { Logger } from "../logger"
 import { buildPrunableToolsList, buildEndInjection } from "./prunable-list"
+import { syncToolParametersFromOpenCode } from "../state/tool-cache"
 
 const PRUNED_CONTENT_MESSAGE = '[Output removed to save context - information superseded or no longer needed]'
 
@@ -65,14 +66,17 @@ export async function handleFormat(
 
     let modified = false
 
-    format.cacheToolParameters(data, ctx.state, ctx.logger)
+    // Sync tool parameters from OpenCode's session API (single source of truth)
+    const sessionId = ctx.state.lastSeenSessionId
+    if (sessionId) {
+        await syncToolParametersFromOpenCode(ctx.client, sessionId, ctx.state, ctx.logger)
+    }
 
     if (ctx.config.strategies.onTool.length > 0) {
         if (format.injectSynth(data, ctx.prompts.synthInstruction, ctx.prompts.nudgeInstruction)) {
             modified = true
         }
 
-        const sessionId = ctx.state.lastSeenSessionId
         if (sessionId) {
             const toolIds = Array.from(ctx.state.toolParameters.keys())
             const alreadyPruned = ctx.state.prunedIds.get(sessionId) ?? []

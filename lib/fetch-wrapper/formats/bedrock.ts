@@ -1,7 +1,5 @@
 import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
 import type { PluginState } from "../../state"
-import type { Logger } from "../../logger"
-import { cacheToolParametersFromMessages } from "../../state/tool-cache"
 
 function isNudgeMessage(msg: any, nudgeText: string): boolean {
     if (typeof msg.content === 'string') {
@@ -86,28 +84,6 @@ export const bedrockFormat: FormatDescriptor = {
 
     getDataArray(body: any): any[] | undefined {
         return body.messages
-    },
-
-    cacheToolParameters(data: any[], state: PluginState, logger?: Logger): void {
-        // Extract toolUseId and tool name from assistant toolUse blocks
-        for (const m of data) {
-            if (m.role === 'assistant' && Array.isArray(m.content)) {
-                for (const block of m.content) {
-                    if (block.toolUse && block.toolUse.toolUseId) {
-                        const toolUseId = block.toolUse.toolUseId.toLowerCase()
-                        state.toolParameters.set(toolUseId, {
-                            tool: block.toolUse.name,
-                            parameters: block.toolUse.input
-                        })
-                        logger?.debug("bedrock", "Cached tool parameters", {
-                            toolUseId,
-                            toolName: block.toolUse.name
-                        })
-                    }
-                }
-            }
-        }
-        cacheToolParametersFromMessages(data, state, logger)
     },
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {

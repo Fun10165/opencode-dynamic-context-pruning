@@ -1,110 +1,71 @@
-import type { PluginState } from "./index"
+import type { PluginState, ToolStatus } from "./index"
 import type { Logger } from "../logger"
-
-/**
- * Cache tool parameters from OpenAI Chat Completions and Anthropic style messages.
- * Extracts tool call IDs and their parameters from assistant messages.
- * 
- * Supports:
- * - OpenAI format: message.tool_calls[] with id, function.name, function.arguments
- * - Anthropic format: message.content[] with type='tool_use', id, name, input
- */
-export function cacheToolParametersFromMessages(
-    messages: any[],
-    state: PluginState,
-    logger?: Logger
-): void {
-    let openaiCached = 0
-    let anthropicCached = 0
-
-    for (const message of messages) {
-        if (message.role !== 'assistant') {
-            continue
-        }
-
-        if (Array.isArray(message.tool_calls)) {
-            for (const toolCall of message.tool_calls) {
-                if (!toolCall.id || !toolCall.function) {
-                    continue
-                }
-
-                try {
-                    const params = typeof toolCall.function.arguments === 'string'
-                        ? JSON.parse(toolCall.function.arguments)
-                        : toolCall.function.arguments
-                    state.toolParameters.set(toolCall.id.toLowerCase(), {
-                        tool: toolCall.function.name,
-                        parameters: params
-                    })
-                    openaiCached++
-                } catch (error) {
-                }
-            }
-        }
-
-        if (Array.isArray(message.content)) {
-            for (const part of message.content) {
-                if (part.type !== 'tool_use' || !part.id || !part.name) {
-                    continue
-                }
-
-                state.toolParameters.set(part.id.toLowerCase(), {
-                    tool: part.name,
-                    parameters: part.input ?? {}
-                })
-                anthropicCached++
-            }
-        }
-    }
-
-    if (logger && (openaiCached > 0 || anthropicCached > 0)) {
-        logger.debug("tool-cache", "Cached tool parameters from messages", {
-            openaiFormat: openaiCached,
-            anthropicFormat: anthropicCached,
-            totalCached: state.toolParameters.size
-        })
-    }
-}
-
-/**
- * Cache tool parameters from OpenAI Responses API format.
- * Extracts from input array items with type='function_call'.
- */
-export function cacheToolParametersFromInput(
-    input: any[],
-    state: PluginState,
-    logger?: Logger
-): void {
-    let cached = 0
-
-    for (const item of input) {
-        if (item.type !== 'function_call' || !item.call_id || !item.name) {
-            continue
-        }
-
-        try {
-            const params = typeof item.arguments === 'string'
-                ? JSON.parse(item.arguments)
-                : item.arguments
-            state.toolParameters.set(item.call_id.toLowerCase(), {
-                tool: item.name,
-                parameters: params
-            })
-            cached++
-        } catch (error) {
-        }
-    }
-
-    if (logger && cached > 0) {
-        logger.debug("tool-cache", "Cached tool parameters from input", {
-            responsesApiFormat: cached,
-            totalCached: state.toolParameters.size
-        })
-    }
-}
 
 /** Maximum number of entries to keep in the tool parameters cache */
 const MAX_TOOL_CACHE_SIZE = 500
+
+/**
+ * Sync tool parameters from OpenCode's session.messages() API.
+ * This is the single source of truth for tool parameters, replacing
+ * format-specific parsing from LLM API requests.
+ */
+export async function syncToolParametersFromOpenCode(
+    client: any,
+    sessionId: string,
+    state: PluginState,
+    logger?: Logger
+): Promise<void> {
+    try {
+        const messagesResponse = await client.session.messages({
+            path: { id: sessionId },
+            query: { limit: 100 }
+        })
+        const messages = messagesResponse.data || messagesResponse
+
+        if (!Array.isArray(messages)) {
+            return
+        }
+
+        let synced = 0
+
+        for (const msg of messages) {
+            if (!msg.parts) continue
+
+            for (const part of msg.parts) {
+                if (part.type !== "tool" || !part.callID) continue
+
+                const id = part.callID.toLowerCase()
+
+                // Skip if already cached (optimization)
+                if (state.toolParameters.has(id)) continue
+
+                const status = part.state?.status as ToolStatus | undefined
+                state.toolParameters.set(id, {
+                    tool: part.tool,
+                    parameters: part.state?.input ?? {},
+                    status,
+                    error: status === "error" ? part.state?.error : undefined,
+                })
+                synced++
+            }
+        }
+
+        trimToolParametersCache(state)
+
+        if (logger && synced > 0) {
+            logger.debug("tool-cache", "Synced tool parameters from OpenCode", {
+                sessionId: sessionId.slice(0, 8),
+                synced,
+                totalCached: state.toolParameters.size
+            })
+        }
+    } catch (error) {
+        logger?.warn("tool-cache", "Failed to sync tool parameters from OpenCode", {
+            sessionId: sessionId.slice(0, 8),
+            error: error instanceof Error ? error.message : String(error)
+        })
+    }
+}
 
 /**
  * Trim the tool parameters cache to prevent unbounded memory growth.

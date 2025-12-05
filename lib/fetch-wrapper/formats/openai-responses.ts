@@ -1,7 +1,5 @@
 import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
 import type { PluginState } from "../../state"
-import type { Logger } from "../../logger"
-import { cacheToolParametersFromInput } from "../../state/tool-cache"
 
 function isNudgeItem(item: any, nudgeText: string): boolean {
     if (typeof item.content === 'string') {
@@ -64,10 +62,6 @@ export const openaiResponsesFormat: FormatDescriptor = {
 
     getDataArray(body: any): any[] | undefined {
         return body.input
-    },
-
-    cacheToolParameters(data: any[], state: PluginState, logger?: Logger): void {
-        cacheToolParametersFromInput(data, state, logger)
     },
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {

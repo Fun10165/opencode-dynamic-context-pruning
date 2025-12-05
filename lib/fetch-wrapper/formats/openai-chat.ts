@@ -1,7 +1,5 @@
 import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
 import type { PluginState } from "../../state"
-import type { Logger } from "../../logger"
-import { cacheToolParametersFromMessages } from "../../state/tool-cache"
 
 function isNudgeMessage(msg: any, nudgeText: string): boolean {
     if (typeof msg.content === 'string') {
@@ -77,10 +75,6 @@ export const openaiChatFormat: FormatDescriptor = {
 
     getDataArray(body: any): any[] | undefined {
         return body.messages
-    },
-
-    cacheToolParameters(data: any[], state: PluginState, logger?: Logger): void {
-        cacheToolParametersFromMessages(data, state, logger)
     },
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {

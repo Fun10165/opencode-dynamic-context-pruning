@@ -13,7 +13,6 @@ export interface FormatDescriptor {
     name: string
     detect(body: any): boolean
     getDataArray(body: any): any[] | undefined
-    cacheToolParameters(data: any[], state: PluginState, logger?: Logger): void
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean
     trackNewToolResults(data: any[], tracker: ToolTracker, protectedTools: Set<string>): number
     injectPrunableList(data: any[], injection: string): boolean

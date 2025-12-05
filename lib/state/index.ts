@@ -15,9 +15,13 @@ export interface PluginState {
     lastSeenSessionId: string | null
 }
 
+export type ToolStatus = "pending" | "running" | "completed" | "error"
+
 export interface ToolParameterEntry {
     tool: string
     parameters: any
+    status?: ToolStatus
+    error?: string
 }
 
 export interface ModelInfo {

@@ -121,13 +121,6 @@ export function createChatParamsHandler(
                                         toolCallsByName.set(toolName, [])
                                     }
                                     toolCallsByName.get(toolName)!.push(callId)
-
-                                    if (!state.toolParameters.has(callId)) {
-                                        state.toolParameters.set(callId, {
-                                            tool: part.tool,
-                                            parameters: part.input ?? {}
-                                        })
-                                    }
                                 }
                             }
                         }
