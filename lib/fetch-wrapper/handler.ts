@@ -67,9 +67,11 @@ export async function handleFormat(
     let modified = false
 
     // Sync tool parameters from OpenCode's session API (single source of truth)
+    // Also tracks new tool results for nudge injection
     const sessionId = ctx.state.lastSeenSessionId
+    const protectedSet = new Set(ctx.config.protectedTools)
     if (sessionId) {
-        await syncToolParametersFromOpenCode(ctx.client, sessionId, ctx.state, ctx.logger)
+        await syncToolParametersFromOpenCode(ctx.client, sessionId, ctx.state, ctx.toolTracker, protectedSet, ctx.logger)
     }
 
     if (ctx.config.strategies.onTool.length > 0) {
@@ -91,8 +93,6 @@ export async function handleFormat(
             )
 
             if (prunableList) {
-                const protectedSet = new Set(ctx.config.protectedTools)
-                format.trackNewToolResults(data, ctx.toolTracker, protectedSet)
                 const includeNudge = ctx.config.nudge_freq > 0 && ctx.toolTracker.toolResultCount > ctx.config.nudge_freq
 
                 const endInjection = buildEndInjection(prunableList, includeNudge)
@@ -119,14 +119,12 @@ export async function handleFormat(
     }
 
     const toolOutputs = format.extractToolOutputs(data, ctx.state)
-    const protectedToolsLower = new Set(ctx.config.protectedTools.map(t => t.toLowerCase()))
     let replacedCount = 0
     let prunableCount = 0
 
     for (const output of toolOutputs) {
-        if (output.toolName && protectedToolsLower.has(output.toolName.toLowerCase())) {
-            continue
-        }
+        // Skip tools not in cache (protected tools are excluded from cache)
+        if (!output.toolName) continue
         prunableCount++
 
         if (allPrunedIds.has(output.id)) {

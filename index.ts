@@ -43,12 +43,6 @@ const plugin: Plugin = (async (ctx) => {
     // Create tool tracker and load prompts for synthetic instruction injection
     const toolTracker = createToolTracker()
 
-    // Wire up tool name lookup from the cached tool parameters
-    toolTracker.getToolName = (callId: string) => {
-        const entry = state.toolParameters.get(callId.toLowerCase())
-        return entry?.tool
-    }
-
     const prompts = {
         synthInstruction: loadPrompt("synthetic"),
         nudgeInstruction: loadPrompt("nudge")

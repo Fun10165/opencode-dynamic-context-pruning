@@ -1,4 +1,4 @@
-import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
+import type { FormatDescriptor, ToolOutput } from "../types"
 import type { PluginState } from "../../state"
 
 function isNudgeMessage(msg: any, nudgeText: string): boolean {
@@ -30,36 +30,6 @@ function injectSynth(messages: any[], instruction: string, nudgeText: string): b
     return false
 }
 
-function trackNewToolResults(messages: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-    let newCount = 0
-    for (const m of messages) {
-        if (m.role === 'tool' && m.tool_call_id) {
-            if (!tracker.seenToolResultIds.has(m.tool_call_id)) {
-                tracker.seenToolResultIds.add(m.tool_call_id)
-                const toolName = tracker.getToolName?.(m.tool_call_id)
-                if (!toolName || !protectedTools.has(toolName)) {
-                    tracker.toolResultCount++
-                    newCount++
-                }
-            }
-        } else if (m.role === 'user' && Array.isArray(m.content)) {
-            for (const part of m.content) {
-                if (part.type === 'tool_result' && part.tool_use_id) {
-                    if (!tracker.seenToolResultIds.has(part.tool_use_id)) {
-                        tracker.seenToolResultIds.add(part.tool_use_id)
-                        const toolName = tracker.getToolName?.(part.tool_use_id)
-                        if (!toolName || !protectedTools.has(toolName)) {
-                            tracker.toolResultCount++
-                            newCount++
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return newCount
-}
-
 function injectPrunableList(messages: any[], injection: string): boolean {
     if (!injection) return false
     messages.push({ role: 'user', content: injection })
@@ -79,10 +49,6 @@ export const openaiChatFormat: FormatDescriptor = {
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {
         return injectSynth(data, instruction, nudgeText)
-    },
-
-    trackNewToolResults(data: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-        return trackNewToolResults(data, tracker, protectedTools)
     },
 
     injectPrunableList(data: any[], injection: string): boolean {

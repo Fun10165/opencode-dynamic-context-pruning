@@ -2,7 +2,6 @@ export interface ToolTracker {
     seenToolResultIds: Set<string>
     toolResultCount: number  // Tools since last prune
     skipNextIdle: boolean
-    getToolName?: (callId: string) => string | undefined
 }
 
 export function createToolTracker(): ToolTracker {

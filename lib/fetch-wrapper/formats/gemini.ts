@@ -1,4 +1,4 @@
-import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
+import type { FormatDescriptor, ToolOutput } from "../types"
 import type { PluginState } from "../../state"
 
 function isNudgeContent(content: any, nudgeText: string): boolean {
@@ -26,29 +26,6 @@ function injectSynth(contents: any[], instruction: string, nudgeText: string): b
     return false
 }
 
-function trackNewToolResults(contents: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-    let newCount = 0
-    let positionCounter = 0
-    for (const content of contents) {
-        if (!Array.isArray(content.parts)) continue
-        for (const part of content.parts) {
-            if (part.functionResponse) {
-                const positionId = `gemini_pos_${positionCounter}`
-                positionCounter++
-                if (!tracker.seenToolResultIds.has(positionId)) {
-                    tracker.seenToolResultIds.add(positionId)
-                    const toolName = part.functionResponse.name
-                    if (!toolName || !protectedTools.has(toolName)) {
-                        tracker.toolResultCount++
-                        newCount++
-                    }
-                }
-            }
-        }
-    }
-    return newCount
-}
-
 function injectPrunableList(contents: any[], injection: string): boolean {
     if (!injection) return false
     contents.push({ role: 'user', parts: [{ text: injection }] })
@@ -73,10 +50,6 @@ export const geminiFormat: FormatDescriptor = {
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {
         return injectSynth(data, instruction, nudgeText)
-    },
-
-    trackNewToolResults(data: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-        return trackNewToolResults(data, tracker, protectedTools)
     },
 
     injectPrunableList(data: any[], injection: string): boolean {

@@ -1,4 +1,4 @@
-import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
+import type { FormatDescriptor, ToolOutput } from "../types"
 import type { PluginState } from "../../state"
 
 function isNudgeItem(item: any, nudgeText: string): boolean {
@@ -30,23 +30,6 @@ function injectSynth(input: any[], instruction: string, nudgeText: string): bool
     return false
 }
 
-function trackNewToolResults(input: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-    let newCount = 0
-    for (const item of input) {
-        if (item.type === 'function_call_output' && item.call_id) {
-            if (!tracker.seenToolResultIds.has(item.call_id)) {
-                tracker.seenToolResultIds.add(item.call_id)
-                const toolName = tracker.getToolName?.(item.call_id)
-                if (!toolName || !protectedTools.has(toolName)) {
-                    tracker.toolResultCount++
-                    newCount++
-                }
-            }
-        }
-    }
-    return newCount
-}
-
 function injectPrunableList(input: any[], injection: string): boolean {
     if (!injection) return false
     input.push({ type: 'message', role: 'user', content: injection })
@@ -66,10 +49,6 @@ export const openaiResponsesFormat: FormatDescriptor = {
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {
         return injectSynth(data, instruction, nudgeText)
-    },
-
-    trackNewToolResults(data: any[], tracker: ToolTracker, protectedTools: Set<string>): number {
-        return trackNewToolResults(data, tracker, protectedTools)
     },
 
     injectPrunableList(data: any[], injection: string): boolean {
