@@ -3,28 +3,13 @@ import { type PluginState, ensureSessionRestored } from "../state"
 import type { Logger } from "../logger"
 import { buildPrunableToolsList, buildEndInjection } from "./prunable-list"
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-/** The message used to replace pruned tool output content */
 const PRUNED_CONTENT_MESSAGE = '[Output removed to save context - information superseded or no longer needed]'
 
-// ============================================================================
-// Session Helpers
-// ============================================================================
-
-/**
- * Get the most recent active (non-subagent) session.
- */
 function getMostRecentActiveSession(allSessions: any): any | undefined {
     const activeSessions = allSessions.data?.filter((s: any) => !s.parentID) || []
     return activeSessions.length > 0 ? activeSessions[0] : undefined
 }
 
-/**
- * Fetch session messages for logging purposes.
- */
 async function fetchSessionMessages(
     client: any,
     sessionId: string
@@ -42,9 +27,6 @@ async function fetchSessionMessages(
     }
 }
 
-/**
- * Get all pruned IDs from the current session.
- */
 async function getAllPrunedIds(
     client: any,
     state: PluginState,
@@ -70,16 +52,6 @@ async function getAllPrunedIds(
     return { allSessions, allPrunedIds }
 }
 
-/**
- * Generic format handler that processes any API format using a FormatDescriptor.
- * 
- * This consolidates the common logic from all format-specific handlers:
- * 1. Cache tool parameters
- * 2. Inject synthetic instructions (if strategies enabled)
- * 3. Build and inject prunable tools list
- * 4. Replace pruned tool outputs
- * 5. Log and save context
- */
 export async function handleFormat(
     body: any,
     ctx: FetchHandlerContext,

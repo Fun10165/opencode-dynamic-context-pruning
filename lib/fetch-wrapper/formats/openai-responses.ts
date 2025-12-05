@@ -3,10 +3,6 @@ import type { PluginState } from "../../state"
 import type { Logger } from "../../logger"
 import { cacheToolParametersFromInput } from "../../state/tool-cache"
 
-// ============================================================================
-// Format-specific injection helpers
-// ============================================================================
-
 function isNudgeItem(item: any, nudgeText: string): boolean {
     if (typeof item.content === 'string') {
         return item.content === nudgeText
@@ -18,7 +14,6 @@ function injectSynth(input: any[], instruction: string, nudgeText: string): bool
     for (let i = input.length - 1; i >= 0; i--) {
         const item = input[i]
         if (item.type === 'message' && item.role === 'user') {
-            // Skip nudge messages - find real user message
             if (isNudgeItem(item, nudgeText)) continue
             
             if (typeof item.content === 'string') {
@@ -60,18 +55,6 @@ function injectPrunableList(input: any[], injection: string): boolean {
     return true
 }
 
-// ============================================================================
-// Format Descriptor
-// ============================================================================
-
-/**
- * Format descriptor for OpenAI Responses API (GPT-5 models via sdk.responses()).
- * 
- * Uses body.input array with:
- * - type='function_call' items for tool calls
- * - type='function_call_output' items for tool results
- * - type='message' items for user/assistant messages
- */
 export const openaiResponsesFormat: FormatDescriptor = {
     name: 'openai-responses',
 

@@ -3,10 +3,6 @@ import type { PluginState } from "../../state"
 import type { Logger } from "../../logger"
 import { cacheToolParametersFromMessages } from "../../state/tool-cache"
 
-// ============================================================================
-// Format-specific injection helpers
-// ============================================================================
-
 function isNudgeMessage(msg: any, nudgeText: string): boolean {
     if (typeof msg.content === 'string') {
         return msg.content === nudgeText
@@ -18,7 +14,6 @@ function injectSynth(messages: any[], instruction: string, nudgeText: string): b
     for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i]
         if (msg.role === 'user') {
-            // Skip nudge messages - find real user message
             if (isNudgeMessage(msg, nudgeText)) continue
             
             if (typeof msg.content === 'string') {
@@ -73,21 +68,6 @@ function injectPrunableList(messages: any[], injection: string): boolean {
     return true
 }
 
-// ============================================================================
-// Format Descriptor
-// ============================================================================
-
-/**
- * Format descriptor for OpenAI Chat Completions and Anthropic APIs.
- * 
- * OpenAI Chat format:
- * - Messages with role='tool' and tool_call_id
- * - Assistant messages with tool_calls[] array
- * 
- * Anthropic format:
- * - Messages with role='user' containing content[].type='tool_result' and tool_use_id
- * - Assistant messages with content[].type='tool_use'
- */
 export const openaiChatFormat: FormatDescriptor = {
     name: 'openai-chat',
 

@@ -2,10 +2,6 @@ import type { FormatDescriptor, ToolOutput, ToolTracker } from "../types"
 import type { PluginState } from "../../state"
 import type { Logger } from "../../logger"
 
-// ============================================================================
-// Format-specific injection helpers
-// ============================================================================
-
 function isNudgeContent(content: any, nudgeText: string): boolean {
     if (Array.isArray(content.parts) && content.parts.length === 1) {
         const part = content.parts[0]
@@ -18,7 +14,6 @@ function injectSynth(contents: any[], instruction: string, nudgeText: string): b
     for (let i = contents.length - 1; i >= 0; i--) {
         const content = contents[i]
         if (content.role === 'user' && Array.isArray(content.parts)) {
-            // Skip nudge messages - find real user message
             if (isNudgeContent(content, nudgeText)) continue
             
             const alreadyInjected = content.parts.some(
@@ -61,18 +56,8 @@ function injectPrunableList(contents: any[], injection: string): boolean {
     return true
 }
 
-// ============================================================================
-// Format Descriptor
-// ============================================================================
-
 /**
- * Format descriptor for Google/Gemini API.
- * 
- * Uses body.contents array with:
- * - parts[].functionCall for tool invocations
- * - parts[].functionResponse for tool results
- * 
- * IMPORTANT: Gemini doesn't include tool call IDs in its native format.
+ * Gemini doesn't include tool call IDs in its native format.
  * We use position-based correlation via state.googleToolCallMapping which maps
  * "toolName:index" -> "toolCallId" (populated by hooks.ts from message events).
  */
@@ -88,10 +73,7 @@ export const geminiFormat: FormatDescriptor = {
     },
 
     cacheToolParameters(_data: any[], _state: PluginState, _logger?: Logger): void {
-        // Gemini format doesn't include tool parameters in the request body.
-        // Tool parameters are captured via message events in hooks.ts and stored
-        // in state.googleToolCallMapping for position-based correlation.
-        // No-op here.
+        // No-op: Gemini tool parameters are captured via message events in hooks.ts
     },
 
     injectSynth(data: any[], instruction: string, nudgeText: string): boolean {

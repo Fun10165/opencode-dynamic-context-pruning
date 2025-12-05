@@ -1,7 +1,3 @@
-/**
- * Tool tracker for tracking tool results and managing nudge frequency.
- */
-
 export interface ToolTracker {
     seenToolResultIds: Set<string>
     toolResultCount: number  // Tools since last prune
