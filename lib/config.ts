@@ -4,15 +4,15 @@ import { homedir } from 'os'
 import { parse } from 'jsonc-parser'
 import type { PluginInput } from '@opencode-ai/plugin'
 
-export interface DeduplicationStrategy {
+export interface Deduplication {
     enabled: boolean
 }
 
-export interface PruneThinkingBlocksStrategy {
+export interface PruneThinkingBlocks {
     enabled: boolean
 }
 
-export interface OnIdleStrategy {
+export interface OnIdle {
     enabled: boolean
     model?: string
     showModelErrorToasts?: boolean
@@ -20,7 +20,7 @@ export interface OnIdleStrategy {
     protectedTools: string[]
 }
 
-export interface PruneToolStrategy {
+export interface PruneTool {
     enabled: boolean
     protectedTools: string[]
     nudgeFrequency: number
@@ -32,10 +32,10 @@ export interface PluginConfig {
     showUpdateToasts?: boolean
     pruningSummary: "off" | "minimal" | "detailed"
     strategies: {
-        deduplication: DeduplicationStrategy
-        pruneThinkingBlocks: PruneThinkingBlocksStrategy
-        onIdle: OnIdleStrategy
-        pruneTool: PruneToolStrategy
+        deduplication: Deduplication
+        pruneThinkingBlocks: PruneThinkingBlocks
+        onIdle: OnIdle
+        pruneTool: PruneTool
     }
 }
 

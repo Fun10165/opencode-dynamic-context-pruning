@@ -1,4 +1,3 @@
-import type { PruningResult } from "../core/janitor"
 import { ToolParameterEntry } from "../state"
 
 /**

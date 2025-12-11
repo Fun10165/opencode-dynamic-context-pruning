@@ -1,4 +1,16 @@
 /**
+ * Checks if a session is a subagent session by looking for a parentID.
+ */
+export async function isSubagentSession(client: any, sessionID: string): Promise<boolean> {
+    try {
+        const result = await client.session.get({ path: { id: sessionID } })
+        return !!result.data?.parentID
+    } catch (error: any) {
+        return false
+    }
+}
+
+/**
  * Finds the current agent from messages by scanning backward for user messages.
  */
 export function findCurrentAgent(messages: any[]): string | undefined {

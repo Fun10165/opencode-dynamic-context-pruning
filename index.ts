@@ -27,8 +27,13 @@ const plugin: Plugin = (async (ctx) => {
     })
 
     return {
-        "experimental.chat.messages.transform": createChatMessageTransformHandler(),
-        tool: config.strategies.onTool.length > 0 ? {
+        "experimental.chat.messages.transform": createChatMessageTransformHandler(
+            ctx.client,
+            state,
+            logger,
+            config
+        ),
+        tool: config.strategies.pruneTool.enabled ? {
             prune: createPruningTool({
                 client: ctx.client,
                 state,

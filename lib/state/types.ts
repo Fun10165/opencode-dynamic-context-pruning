@@ -1,7 +1,16 @@
+import { Message, Part } from "@opencode-ai/sdk"
+
+export interface WithParts {
+    info: Message
+    parts: Part[]
+}
+
+export type ToolStatus = "pending" | "running" | "completed" | "error"
+
 export interface ToolParameterEntry {
     tool: string
     parameters: any
-    status?: "pending" | "running" | "completed" | "error"
+    status?: ToolStatus
     error?: string
 }
 

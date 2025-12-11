@@ -2,10 +2,10 @@
  * Strategy runner - executes all enabled pruning strategies and collects results.
  */
 
+import { ToolParameterEntry } from "../../state"
 import { deduplicationStrategy } from "./deduplication"
-import type { ToolMetadata } from "../../fetch-wrapper/types"
 
-export type { ToolMetadata }
+export type { ToolParameterEntry}
 
 /**
  * Common interface for rule-based pruning strategies.
@@ -40,7 +40,7 @@ export interface PruningStrategy {
      * @returns IDs to prune and optional details
      */
     detect(
-        toolMetadata: Map<string, ToolMetadata>,
+        toolMetadata: Map<string, ToolParameterEntry>,
         unprunedIds: string[],
         protectedTools: string[]
     ): StrategyResult
@@ -71,7 +71,7 @@ export interface RunStrategiesResult {
  * @param enabledStrategies - Strategy names to run (defaults to all)
  */
 export function runStrategies(
-    toolMetadata: Map<string, ToolMetadata>,
+    toolMetadata: Map<string, ToolParameterEntry>,
     unprunedIds: string[],
     protectedTools: string[],
     enabledStrategies?: string[]

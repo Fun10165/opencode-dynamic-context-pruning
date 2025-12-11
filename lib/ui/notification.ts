@@ -1,5 +1,5 @@
 import type { Logger } from "../logger"
-import type { SessionStats, GCStats } from "../core/janitor"
+import type { SessionStats, GCStats } from "../state"
 import { formatTokenCount } from "../tokenizer"
 import { formatPrunedItemsList } from "./display-utils"
 import { ToolParameterEntry } from "../state"

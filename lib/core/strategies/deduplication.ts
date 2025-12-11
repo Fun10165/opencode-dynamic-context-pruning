@@ -1,5 +1,5 @@
 import { extractParameterKey } from "../../ui/display-utils"
-import type { PruningStrategy, StrategyResult, ToolMetadata } from "./index"
+import type { PruningStrategy, StrategyResult, ToolParameterEntry } from "./index"
 
 /**
  * Deduplication strategy - prunes older tool calls that have identical
@@ -9,7 +9,7 @@ export const deduplicationStrategy: PruningStrategy = {
     name: "deduplication",
 
     detect(
-        toolMetadata: Map<string, ToolMetadata>,
+        toolMetadata: Map<string, ToolParameterEntry>,
         unprunedIds: string[],
         protectedTools: string[]
     ): StrategyResult {
