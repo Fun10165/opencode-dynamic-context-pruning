@@ -6,7 +6,7 @@ import { createPruningTool } from "./lib/pruning-tool"
 import { createChatMessageTransformHandler } from "./lib/hooks"
 
 const plugin: Plugin = (async (ctx) => {
-    const { config, migrations } = getConfig(ctx)
+    const config = getConfig(ctx)
 
     if (!config.enabled) {
         return {}
@@ -24,26 +24,7 @@ const plugin: Plugin = (async (ctx) => {
     // Log initialization
     logger.info("plugin", "DCP initialized", {
         strategies: config.strategies,
-        model: config.model || "auto"
     })
-
-    // Show migration toast if there were config migrations
-    if (migrations.length > 0) {
-        setTimeout(async () => {
-            try {
-                await ctx.client.tui.showToast({
-                    body: {
-                        title: "DCP: Config upgraded",
-                        message: migrations.join('\n'),
-                        variant: "info",
-                        duration: 8000
-                    }
-                })
-            } catch {
-                // Silently ignore toast errors
-            }
-        }, 7000)
-    }
 
     return {
         "experimental.chat.messages.transform": createChatMessageTransformHandler(),

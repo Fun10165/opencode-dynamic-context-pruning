@@ -1,60 +1,71 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, copyFileSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import { homedir } from 'os'
 import { parse } from 'jsonc-parser'
-import { Logger } from './logger'
 import type { PluginInput } from '@opencode-ai/plugin'
 
-export type PruningStrategy = "deduplication" | "ai-analysis"
+export interface DeduplicationStrategy {
+    enabled: boolean
+}
+
+export interface PruneThinkingBlocksStrategy {
+    enabled: boolean
+}
+
+export interface OnIdleStrategy {
+    enabled: boolean
+    model?: string
+    showModelErrorToasts?: boolean
+    strictModelSelection?: boolean
+    protectedTools: string[]
+}
+
+export interface PruneToolStrategy {
+    enabled: boolean
+    protectedTools: string[]
+    nudgeFrequency: number
+}
 
 export interface PluginConfig {
     enabled: boolean
     debug: boolean
-    protectedTools: string[]
-    model?: string
-    showModelErrorToasts?: boolean
     showUpdateToasts?: boolean
-    strictModelSelection?: boolean
     pruningSummary: "off" | "minimal" | "detailed"
-    nudgeFreq: number
     strategies: {
-        onIdle: PruningStrategy[]
-        onTool: PruningStrategy[]
+        deduplication: DeduplicationStrategy
+        pruneThinkingBlocks: PruneThinkingBlocksStrategy
+        onIdle: OnIdleStrategy
+        pruneTool: PruneToolStrategy
     }
 }
 
-export interface ConfigResult {
-    config: PluginConfig
-    migrations: string[]
-}
+const DEFAULT_PROTECTED_TOOLS = ['task', 'todowrite', 'todoread', 'prune', 'batch', 'write', 'edit']
 
 const defaultConfig: PluginConfig = {
     enabled: true,
     debug: false,
-    protectedTools: ['task', 'todowrite', 'todoread', 'prune', 'batch', 'write', 'edit'],
-    showModelErrorToasts: true,
     showUpdateToasts: true,
-    strictModelSelection: false,
     pruningSummary: 'detailed',
-    nudgeFreq: 10,
     strategies: {
-        onIdle: ['ai-analysis'],
-        onTool: ['ai-analysis']
+        deduplication: {
+            enabled: true
+        },
+        pruneThinkingBlocks: {
+            enabled: true
+        },
+        onIdle: {
+            enabled: true,
+            showModelErrorToasts: true,
+            strictModelSelection: false,
+            protectedTools: [...DEFAULT_PROTECTED_TOOLS]
+        },
+        pruneTool: {
+            enabled: false,
+            protectedTools: [...DEFAULT_PROTECTED_TOOLS],
+            nudgeFrequency: 10
+        }
     }
 }
-
-const VALID_CONFIG_KEYS = new Set([
-    'enabled',
-    'debug',
-    'protectedTools',
-    'model',
-    'showModelErrorToasts',
-    'showUpdateToasts',
-    'strictModelSelection',
-    'pruningSummary',
-    'nudgeFreq',
-    'strategies'
-])
 
 const GLOBAL_CONFIG_DIR = join(homedir(), '.config', 'opencode')
 const GLOBAL_CONFIG_PATH_JSONC = join(GLOBAL_CONFIG_DIR, 'dcp.jsonc')
@@ -109,30 +120,43 @@ function createDefaultConfig(): void {
   "enabled": true,
   // Enable debug logging to ~/.config/opencode/logs/dcp/
   "debug": false,
-  // Override model for analysis (format: "provider/model", e.g. "anthropic/claude-haiku-4-5")
-  // "model": "anthropic/claude-haiku-4-5",
-  // Show toast notifications when model selection fails
-  "showModelErrorToasts": true,
   // Show toast notifications when a new version is available
   "showUpdateToasts": true,
-  // Only run AI analysis with session model or configured model (disables fallback models)
-  "strictModelSelection": false,
-  // AI analysis strategies (deduplication runs automatically on every request)
-  "strategies": {
-    // Strategies to run when session goes idle
-    "onIdle": ["ai-analysis"],
-    // Strategies to run when AI calls prune tool
-    "onTool": ["ai-analysis"]
-  },
   // Summary display: "off", "minimal", or "detailed"
   "pruningSummary": "detailed",
-  // How often to nudge the AI to prune (every N tool results, 0 = disabled)
-  "nudgeFreq": 10
-  // Additional tools to protect from pruning
-  // "protectedTools": ["bash"]
+  // Strategies for pruning tokens from chat history
+  "strategies": {
+    // Remove duplicate tool calls (same tool with same arguments)
+    "deduplication": {
+      "enabled": true
+    },
+    // Remove thinking/reasoning LLM blocks
+    "pruneThinkingBlocks": {
+      "enabled": true
+    },
+    // Run an LLM to analyze what tool calls are no longer relevant on idle
+    "onIdle": {
+      "enabled": true,
+      // Override model for analysis (format: "provider/model")
+      // "model": "anthropic/claude-haiku-4-5",
+      // Show toast notifications when model selection fails
+      "showModelErrorToasts": true,
+      // When true, fallback models are not permitted
+      "strictModelSelection": false,
+      // Additional tools to protect from pruning
+      "protectedTools": []
+    },
+    // Exposes a prune tool to your LLM to call when it determines pruning is necessary
+    "pruneTool": {
+      "enabled": false,
+      // Additional tools to protect from pruning
+      "protectedTools": [],
+      // How often to nudge the AI to prune (every N tool results, 0 = disabled)
+      "nudgeFrequency": 10
+    }
+  }
 }
 `
-
     writeFileSync(GLOBAL_CONFIG_PATH_JSONC, configContent, 'utf-8')
 }
 
@@ -145,109 +169,96 @@ function loadConfigFile(configPath: string): Record<string, any> | null {
     }
 }
 
-function getInvalidKeys(config: Record<string, any>): string[] {
-    const invalidKeys: string[] = []
-    for (const key of Object.keys(config)) {
-        if (!VALID_CONFIG_KEYS.has(key)) {
-            invalidKeys.push(key)
-        }
-    }
-    return invalidKeys
-}
-
-function backupAndResetConfig(configPath: string, logger: Logger): string | null {
-    try {
-        const backupPath = configPath + '.bak'
-        copyFileSync(configPath, backupPath)
-        logger.info('config', 'Created config backup', { backup: backupPath })
-        createDefaultConfig()
-        logger.info('config', 'Created fresh default config', { path: GLOBAL_CONFIG_PATH_JSONC })
-        return backupPath
-    } catch (error: any) {
-        logger.error('config', 'Failed to backup/reset config', { error: error.message })
-        return null
-    }
-}
-
 function mergeStrategies(
     base: PluginConfig['strategies'],
     override?: Partial<PluginConfig['strategies']>
 ): PluginConfig['strategies'] {
     if (!override) return base
+
     return {
-        onIdle: override.onIdle ?? base.onIdle,
-        onTool: override.onTool ?? base.onTool
+        deduplication: {
+            enabled: override.deduplication?.enabled ?? base.deduplication.enabled
+        },
+        pruneThinkingBlocks: {
+            enabled: override.pruneThinkingBlocks?.enabled ?? base.pruneThinkingBlocks.enabled
+        },
+        onIdle: {
+            enabled: override.onIdle?.enabled ?? base.onIdle.enabled,
+            model: override.onIdle?.model ?? base.onIdle.model,
+            showModelErrorToasts: override.onIdle?.showModelErrorToasts ?? base.onIdle.showModelErrorToasts,
+            strictModelSelection: override.onIdle?.strictModelSelection ?? base.onIdle.strictModelSelection,
+            protectedTools: [
+                ...new Set([
+                    ...base.onIdle.protectedTools,
+                    ...(override.onIdle?.protectedTools ?? [])
+                ])
+            ]
+        },
+        pruneTool: {
+            enabled: override.pruneTool?.enabled ?? base.pruneTool.enabled,
+            protectedTools: [
+                ...new Set([
+                    ...base.pruneTool.protectedTools,
+                    ...(override.pruneTool?.protectedTools ?? [])
+                ])
+            ],
+            nudgeFrequency: override.pruneTool?.nudgeFrequency ?? base.pruneTool.nudgeFrequency
+        }
     }
 }
 
-export function getConfig(ctx?: PluginInput): ConfigResult {
-    let config = { ...defaultConfig, protectedTools: [...defaultConfig.protectedTools] }
-    const configPaths = getConfigPaths(ctx)
-    const logger = new Logger(true)
-    const migrations: string[] = []
+function deepCloneConfig(config: PluginConfig): PluginConfig {
+    return {
+        ...config,
+        strategies: {
+            deduplication: { ...config.strategies.deduplication },
+            pruneThinkingBlocks: { ...config.strategies.pruneThinkingBlocks },
+            onIdle: {
+                ...config.strategies.onIdle,
+                protectedTools: [...config.strategies.onIdle.protectedTools]
+            },
+            pruneTool: {
+                ...config.strategies.pruneTool,
+                protectedTools: [...config.strategies.pruneTool.protectedTools]
+            }
+        }
+    }
+}
 
+export function getConfig(ctx: PluginInput): PluginConfig {
+    let config = deepCloneConfig(defaultConfig)
+    const configPaths = getConfigPaths(ctx)
+
+    // Load and merge global config
     if (configPaths.global) {
         const globalConfig = loadConfigFile(configPaths.global)
         if (globalConfig) {
-            const invalidKeys = getInvalidKeys(globalConfig)
-
-            if (invalidKeys.length > 0) {
-                logger.info('config', 'Found invalid config keys', { keys: invalidKeys })
-                const backupPath = backupAndResetConfig(configPaths.global, logger)
-                if (backupPath) {
-                    migrations.push(`Old config backed up to ${backupPath}`)
-                }
-            } else {
-                config = {
-                    enabled: globalConfig.enabled ?? config.enabled,
-                    debug: globalConfig.debug ?? config.debug,
-                    protectedTools: [...new Set([...config.protectedTools, ...(globalConfig.protectedTools ?? [])])],
-                    model: globalConfig.model ?? config.model,
-                    showModelErrorToasts: globalConfig.showModelErrorToasts ?? config.showModelErrorToasts,
-                    showUpdateToasts: globalConfig.showUpdateToasts ?? config.showUpdateToasts,
-                    strictModelSelection: globalConfig.strictModelSelection ?? config.strictModelSelection,
-                    strategies: mergeStrategies(config.strategies, globalConfig.strategies as any),
-                    pruningSummary: globalConfig.pruningSummary ?? config.pruningSummary,
-                    nudgeFreq: globalConfig.nudgeFreq ?? config.nudgeFreq
-                }
-                logger.info('config', 'Loaded global config', { path: configPaths.global })
+            config = {
+                enabled: globalConfig.enabled ?? config.enabled,
+                debug: globalConfig.debug ?? config.debug,
+                showUpdateToasts: globalConfig.showUpdateToasts ?? config.showUpdateToasts,
+                pruningSummary: globalConfig.pruningSummary ?? config.pruningSummary,
+                strategies: mergeStrategies(config.strategies, globalConfig.strategies as any)
             }
         }
     } else {
+        // No config exists, create default
         createDefaultConfig()
-        logger.info('config', 'Created default global config', { path: GLOBAL_CONFIG_PATH_JSONC })
     }
 
+    // Load and merge project config (overrides global)
     if (configPaths.project) {
         const projectConfig = loadConfigFile(configPaths.project)
         if (projectConfig) {
-            const invalidKeys = getInvalidKeys(projectConfig)
-
-            if (invalidKeys.length > 0) {
-                logger.warn('config', 'Project config has invalid keys (ignored)', {
-                    path: configPaths.project,
-                    keys: invalidKeys
-                })
-                migrations.push(`Project config has invalid keys: ${invalidKeys.join(', ')}`)
-            } else {
-                config = {
-                    enabled: projectConfig.enabled ?? config.enabled,
-                    debug: projectConfig.debug ?? config.debug,
-                    protectedTools: [...new Set([...config.protectedTools, ...(projectConfig.protectedTools ?? [])])],
-                    model: projectConfig.model ?? config.model,
-                    showModelErrorToasts: projectConfig.showModelErrorToasts ?? config.showModelErrorToasts,
-                    showUpdateToasts: projectConfig.showUpdateToasts ?? config.showUpdateToasts,
-                    strictModelSelection: projectConfig.strictModelSelection ?? config.strictModelSelection,
-                    strategies: mergeStrategies(config.strategies, projectConfig.strategies as any),
-                    pruningSummary: projectConfig.pruningSummary ?? config.pruningSummary,
-                    nudgeFreq: projectConfig.nudgeFreq ?? config.nudgeFreq
-                }
-                logger.info('config', 'Loaded project config (overrides global)', { path: configPaths.project })
+            config = {
+                enabled: projectConfig.enabled ?? config.enabled,
+                debug: projectConfig.debug ?? config.debug,
+                showUpdateToasts: projectConfig.showUpdateToasts ?? config.showUpdateToasts,
+                pruningSummary: projectConfig.pruningSummary ?? config.pruningSummary,
+                strategies: mergeStrategies(config.strategies, projectConfig.strategies as any)
             }
         }
-    } else if (ctx?.directory) {
-        logger.debug('config', 'No project config found', { searchedFrom: ctx.directory })
     }
 
-    return { config, migrations }
+    return config
 }
