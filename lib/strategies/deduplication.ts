@@ -1,7 +1,7 @@
 import { PluginConfig } from "../config"
 import { Logger } from "../logger"
 import type { SessionState, WithParts } from "../state"
-import { calculateTokensSaved } from "../utils"
+import { buildToolIdList, calculateTokensSaved } from "../utils"
 
 /**
  * Deduplication strategy - prunes older tool calls that have identical
@@ -73,20 +73,6 @@ export const deduplicate = (
         state.prune.toolIds.push(...newPruneIds)
         logger.debug(`Marked ${newPruneIds.length} duplicate tool calls for pruning`)
     }
-}
-
-function buildToolIdList(messages: WithParts[]): string[] {
-    const toolIds: string[] = []
-    for (const msg of messages) {
-        if (msg.parts) {
-            for (const part of msg.parts) {
-                if (part.type === 'tool' && part.callID && part.tool) {
-                    toolIds.push(part.callID)
-                }
-            }
-        }
-    }
-    return toolIds
 }
 
 function createToolSignature(tool: string, parameters?: any): string {
