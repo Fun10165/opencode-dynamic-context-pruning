@@ -5,6 +5,8 @@ import type { WithParts } from "../state"
  * Used by both deduplication and AI analysis to show what was pruned.
  */
 export const extractParameterKey = (tool: string, parameters: any): string => {
+    if (!parameters) return ''
+
     if (tool === "read" && parameters.filePath) {
         return parameters.filePath
     }

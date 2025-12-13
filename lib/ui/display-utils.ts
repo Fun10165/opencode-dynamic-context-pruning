@@ -1,78 +1,5 @@
 import { ToolParameterEntry } from "../state"
-
-/**
- * Extracts a human-readable key from tool metadata for display purposes.
- * Used by both deduplication and AI analysis to show what was pruned.
- */
-export function extractParameterKey(metadata: { tool: string, parameters?: any }): string {
-    if (!metadata.parameters) return ''
-
-    const { tool, parameters } = metadata
-
-    if (tool === "read" && parameters.filePath) {
-        return parameters.filePath
-    }
-    if (tool === "write" && parameters.filePath) {
-        return parameters.filePath
-    }
-    if (tool === "edit" && parameters.filePath) {
-        return parameters.filePath
-    }
-
-    if (tool === "list") {
-        return parameters.path || '(current directory)'
-    }
-    if (tool === "glob") {
-        if (parameters.pattern) {
-            const pathInfo = parameters.path ? ` in ${parameters.path}` : ""
-            return `"${parameters.pattern}"${pathInfo}`
-        }
-        return '(unknown pattern)'
-    }
-    if (tool === "grep") {
-        if (parameters.pattern) {
-            const pathInfo = parameters.path ? ` in ${parameters.path}` : ""
-            return `"${parameters.pattern}"${pathInfo}`
-        }
-        return '(unknown pattern)'
-    }
-
-    if (tool === "bash") {
-        if (parameters.description) return parameters.description
-        if (parameters.command) {
-            return parameters.command.length > 50
-                ? parameters.command.substring(0, 50) + "..."
-                : parameters.command
-        }
-    }
-
-    if (tool === "webfetch" && parameters.url) {
-        return parameters.url
-    }
-    if (tool === "websearch" && parameters.query) {
-        return `"${parameters.query}"`
-    }
-    if (tool === "codesearch" && parameters.query) {
-        return `"${parameters.query}"`
-    }
-
-    if (tool === "todowrite") {
-        return `${parameters.todos?.length || 0} todos`
-    }
-    if (tool === "todoread") {
-        return "read todo list"
-    }
-
-    if (tool === "task" && parameters.description) {
-        return parameters.description
-    }
-
-    const paramStr = JSON.stringify(parameters)
-    if (paramStr === '{}' || paramStr === '[]' || paramStr === 'null') {
-        return ''
-    }
-    return paramStr.substring(0, 50)
-}
+import { extractParameterKey } from "../messages/utils"
 
 export function truncate(str: string, maxLen: number = 60): string {
     if (str.length <= maxLen) return str
@@ -118,7 +45,7 @@ export function formatPrunedItemsList(
         const metadata = toolMetadata.get(id)
 
         if (metadata) {
-            const paramKey = extractParameterKey(metadata)
+            const paramKey = extractParameterKey(metadata.tool, metadata.parameters)
             if (paramKey) {
                 // Use 60 char limit to match notification style
                 const displayKey = truncate(shortenPath(paramKey, workingDirectory), 60)
