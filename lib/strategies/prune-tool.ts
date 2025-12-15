@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin"
 import type { SessionState, ToolParameterEntry, WithParts } from "../state"
 import type { PluginConfig } from "../config"
-import { findCurrentAgent, buildToolIdList, getPruneToolIds } from "../messages/utils"
+import { findCurrentAgent, buildToolIdList } from "../messages/utils"
 import { calculateTokensSaved } from "../utils"
 import { PruneReason, sendUnifiedNotification } from "../ui/notification"
 import { formatPruningResultForTool } from "../ui/display-utils"
@@ -70,12 +70,23 @@ export function createPruneTool(
 
             const currentAgent: string | undefined = findCurrentAgent(messages)
             const toolIdList: string[] = buildToolIdList(messages)
-            const pruneToolIds: string[] = getPruneToolIds(
-                numericToolIds,
-                toolIdList,
-                state.toolParameters,
-                config.strategies.pruneTool.protectedTools
-            )
+
+            // Validate that all numeric IDs are within bounds
+            const invalidIds = numericToolIds.filter(id => id < 0 || id >= toolIdList.length)
+            if (invalidIds.length > 0) {
+                return "Invalid IDs provided. Only use numeric IDs from the <prunable-tools> list."
+            }
+
+            // Check for protected tools (model hallucinated an ID not in the prunable list)
+            for (const index of numericToolIds) {
+                const id = toolIdList[index]
+                const metadata = state.toolParameters.get(id)
+                if (metadata && config.strategies.pruneTool.protectedTools.includes(metadata.tool)) {
+                    return "Invalid IDs provided. Only use numeric IDs from the <prunable-tools> list."
+                }
+            }
+
+            const pruneToolIds: string[] = numericToolIds.map(index => toolIdList[index])
             state.prune.toolIds.push(...pruneToolIds)
 
             const toolMetadata = new Map<string, ToolParameterEntry>()
