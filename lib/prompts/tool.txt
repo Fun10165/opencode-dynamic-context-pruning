@@ -25,11 +25,14 @@ You must use this tool in three specific scenarios. The rules for distillation (
    - Narrative format: "I found X in file Y..."
    - Capture all relevant details (function names, logic, constraints).
    - Once distilled into your response history, the raw tool output can be safely pruned.
+   - **Know when distillation isn't enough:** If you'll need to edit a file, grep for exact strings, or reference precise syntax, keep the raw output. Distillation works for understanding; implementation often requires the original.
+   - **Prefer keeping over re-fetching:** If uncertain whether you'll need the output again, keep it. The cost of retaining context is lower than the cost of redundant tool calls.
 
 ## Best Practices
 - **Don't wait too long:** Prune frequently to keep the context agile.
 - **Be surgical:** You can mix strategies. Prune noise without comment, while distilling useful context in the same turn.
 - **Verify:** Ensure you have captured what you need before deleting useful raw data.
+- **Think ahead:** Before pruning, ask: "Will I need this output for an upcoming task?" If you researched a file you'll later edit, or gathered context for implementation, do NOT prune it—even if you've distilled findings. Distillation captures *knowledge*; implementation requires *context*.
 
 ## Examples
 
@@ -54,3 +57,8 @@ Assistant: [Runs tests, they pass]
 The tests passed. The feature is verified.
 [Uses prune with ids: ["completion", "20", "21"]]
 </example_completion>
+
+<example_keep>
+Assistant: [Reads 'auth.ts' to understand the login flow]
+I've understood the auth flow. I'll need to modify this file to add the new validation, so I'm keeping this read in context rather than distilling and pruning.
+</example_keep>

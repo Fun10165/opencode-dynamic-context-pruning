@@ -18,8 +18,14 @@ You WILL use the `prune` tool when ANY of these are true:
 - You have distilled enough information in your messages to prune related tools
 - Context contains tools output that are unhelpful, noise, or made obsolete by newer outputs
 
+You MUST NOT prune when:
+- The tool output will be needed for upcoming implementation work
+- The output contains files or context you'll need to reference when making edits
+
+Pruning that forces you to re-call the same tool later is a net loss. Only prune when you're confident the information won't be needed again.
+
 NOTES
-When in doubt, prune out. Prune often yet remain strategic about it.
+When in doubt, keep it. Prune often yet remain strategic about it.
 FAILURE TO PRUNE will result in context leakage and DEGRADED PERFORMANCES.
 
 </instruction>
