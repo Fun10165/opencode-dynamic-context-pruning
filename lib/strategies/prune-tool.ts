@@ -42,6 +42,7 @@ export function createPruneTool(
             const sessionId = toolCtx.sessionID
 
             if (!args.ids || args.ids.length === 0) {
+                logger.debug("Prune tool called but args.ids is empty or undefined: " + JSON.stringify(args))
                 return "No IDs provided. Check the <prunable-tools> list for available IDs to prune."
             }
 
@@ -50,6 +51,7 @@ export function createPruneTool(
             const reason = args.ids[0];
             const validReasons = ["completion", "noise", "consolidation"] as const
             if (typeof reason !== "string" || !validReasons.includes(reason as any)) {
+                logger.debug("Invalid pruning reason provided: " + reason)
                 return "No valid pruning reason found. Use 'completion', 'noise', or 'consolidation' as the first element."
             }
 
@@ -57,6 +59,7 @@ export function createPruneTool(
                 .map(id => parseInt(id, 10))
                 .filter((n): n is number => !isNaN(n))
             if (numericToolIds.length === 0) {
+                logger.debug("No numeric tool IDs provided for pruning, yet prune tool was called: " + JSON.stringify(args))
                 return "No numeric IDs provided. Format: [reason, id1, id2, ...] where reason is 'completion', 'noise', or 'consolidation'."
             }
 
@@ -73,6 +76,7 @@ export function createPruneTool(
 
             // Validate that all numeric IDs are within bounds
             if (numericToolIds.some(id => id < 0 || id >= toolIdList.length)) {
+                logger.debug("Invalid tool IDs provided: " + numericToolIds.join(", "))
                 return "Invalid IDs provided. Only use numeric IDs from the <prunable-tools> list."
             }
 
