@@ -31,7 +31,6 @@ export interface PruneTool {
 export interface PluginConfig {
     enabled: boolean
     debug: boolean
-    showUpdateToasts?: boolean
     pruningSummary: "off" | "minimal" | "detailed"
     strategies: {
         deduplication: Deduplication
@@ -47,7 +46,6 @@ export const VALID_CONFIG_KEYS = new Set([
     // Top-level keys
     'enabled',
     'debug',
-    'showUpdateToasts',
     'pruningSummary',
     'strategies',
     // strategies.deduplication
@@ -105,9 +103,6 @@ function validateConfigTypes(config: Record<string, any>): ValidationError[] {
     }
     if (config.debug !== undefined && typeof config.debug !== 'boolean') {
         errors.push({ key: 'debug', expected: 'boolean', actual: typeof config.debug })
-    }
-    if (config.showUpdateToasts !== undefined && typeof config.showUpdateToasts !== 'boolean') {
-        errors.push({ key: 'showUpdateToasts', expected: 'boolean', actual: typeof config.showUpdateToasts })
     }
     if (config.pruningSummary !== undefined) {
         const validValues = ['off', 'minimal', 'detailed']
@@ -217,7 +212,6 @@ function showConfigValidationWarnings(
 const defaultConfig: PluginConfig = {
     enabled: true,
     debug: false,
-    showUpdateToasts: true,
     pruningSummary: 'detailed',
     strategies: {
         deduplication: {
@@ -310,8 +304,6 @@ function createDefaultConfig(): void {
   "enabled": true,
   // Enable debug logging to ~/.config/opencode/logs/dcp/
   "debug": false,
-  // Show toast notifications when a new version is available
-  "showUpdateToasts": true,
   // Summary display: "off", "minimal", or "detailed"
   "pruningSummary": "detailed",
   // Strategies for pruning tokens from chat history
@@ -468,7 +460,6 @@ export function getConfig(ctx: PluginInput): PluginConfig {
             config = {
                 enabled: result.data.enabled ?? config.enabled,
                 debug: result.data.debug ?? config.debug,
-                showUpdateToasts: result.data.showUpdateToasts ?? config.showUpdateToasts,
                 pruningSummary: result.data.pruningSummary ?? config.pruningSummary,
                 strategies: mergeStrategies(config.strategies, result.data.strategies as any)
             }
@@ -500,7 +491,6 @@ export function getConfig(ctx: PluginInput): PluginConfig {
             config = {
                 enabled: result.data.enabled ?? config.enabled,
                 debug: result.data.debug ?? config.debug,
-                showUpdateToasts: result.data.showUpdateToasts ?? config.showUpdateToasts,
                 pruningSummary: result.data.pruningSummary ?? config.pruningSummary,
                 strategies: mergeStrategies(config.strategies, result.data.strategies as any)
             }
@@ -529,7 +519,6 @@ export function getConfig(ctx: PluginInput): PluginConfig {
             config = {
                 enabled: result.data.enabled ?? config.enabled,
                 debug: result.data.debug ?? config.debug,
-                showUpdateToasts: result.data.showUpdateToasts ?? config.showUpdateToasts,
                 pruningSummary: result.data.pruningSummary ?? config.pruningSummary,
                 strategies: mergeStrategies(config.strategies, result.data.strategies as any)
             }

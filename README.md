@@ -58,8 +58,6 @@ DCP uses its own config file:
   "enabled": true,
   // Enable debug logging to ~/.config/opencode/logs/dcp/
   "debug": false,
-  // Show toast notifications when a new version is available
-  "showUpdateToasts": true,
   // Summary display: "off", "minimal", or "detailed"
   "pruningSummary": "detailed",
   // Strategies for pruning tokens from chat history
