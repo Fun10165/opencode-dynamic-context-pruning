@@ -93,3 +93,8 @@ export function buildToolIdList(
     }
     return toolIds
 }
+
+export const isReasoningPart = (part: any): boolean => {
+    return part.type === 'reasoning' || part.type === 'thinking'
+}
+

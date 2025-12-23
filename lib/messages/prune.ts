@@ -2,7 +2,7 @@ import type { SessionState, WithParts } from "../state"
 import type { Logger } from "../logger"
 import type { PluginConfig } from "../config"
 import { loadPrompt } from "../prompt"
-import { extractParameterKey, buildToolIdList } from "./utils"
+import { extractParameterKey, buildToolIdList, isReasoningPart } from "./utils"
 import { getLastUserMessage, isMessageCompacted } from "../shared-utils"
 import { UserMessage } from "@opencode-ai/sdk"
 
@@ -64,6 +64,27 @@ export const insertPruneToolContext = (
         return
     }
 
+    // Check if the last message indicates ongoing reasoning or tool execution
+    // If the last message is an assistant message with reasoning but NO tool call, 
+    // or if it ends with a tool result, we might be in the middle of a chain.
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage) {
+        const hasReasoning = lastMessage.parts.some(p => p.type === 'reasoning' || (p as any).type === 'thinking')
+        const hasToolCall = lastMessage.parts.some(p => p.type === 'tool')
+        
+        // If the model is thinking but hasn't called a tool yet, or just called a tool,
+        // injecting a User message now might break the flow.
+        // However, we usually run AFTER the tool result is added (which is a separate message or part).
+        
+        // Better heuristic: If the last part is reasoning, DO NOT inject.
+        // Also skip if it's step-finish (tool call just happened)
+        const lastPart = lastMessage.parts[lastMessage.parts.length - 1]
+        if (isReasoningPart(lastPart) || lastPart.type === 'step-finish') {
+            logger.debug("Skipping prune context injection: Model is thinking or stepping")
+            return
+        }
+    }
+
     let nudgeString = ""
     if (state.nudgeCounter >= config.strategies.pruneTool.nudge.frequency) {
         logger.info("Inserting prune nudge message")
@@ -74,7 +95,7 @@ export const insertPruneToolContext = (
         info: {
             id: "msg_01234567890123456789012345",
             sessionID: lastUserMessage.info.sessionID,
-            role: "user",
+            role: "system" as any, // Use system role to avoid breaking reasoning flow
             time: { created: Date.now() },
             agent: (lastUserMessage.info as UserMessage).agent || "build",
             model: {
@@ -117,6 +138,11 @@ const pruneToolOutputs = (
         }
 
         for (const part of msg.parts) {
+            // Explicitly preserve reasoning parts (DeepSeek/Claude thinking)
+            if (isReasoningPart(part)) {
+                continue
+            }
+
             if (part.type !== 'tool') {
                 continue
             }
@@ -141,6 +167,11 @@ const pruneToolInputs = (
 ): void => {
     for (const msg of messages) {
         for (const part of msg.parts) {
+            // Explicitly preserve reasoning parts
+            if (isReasoningPart(part)) {
+                continue
+            }
+
             if (part.type !== 'tool') {
                 continue
             }
