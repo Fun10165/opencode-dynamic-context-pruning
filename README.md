@@ -49,7 +49,7 @@ Your session history is never modified—DCP replaces pruned content with placeh
 
 LLM providers like Anthropic and OpenAI cache prompts based on exact prefix matching. When DCP prunes a tool output, it changes the message content, which invalidates cached prefixes from that point forward.
 
-**Trade-off:** You lose some cache read benefits but gain larger token savings from reduced context size. In most cases, the token savings outweigh the cache miss cost—especially in long sessions where context bloat becomes significant.
+**Trade-off:** You lose some cache read benefits but gain larger token savings from reduced context size and performance improvements through reduced context poisoning. In most cases, the token savings outweigh the cache miss cost—especially in long sessions where context bloat becomes significant.
 
 **Best use case:** Providers that count usage in requests, such as Github Copilot and Google Antigravity have no negative price impact.
 
