@@ -131,7 +131,24 @@ export const insertPruneToolContext = (
     if (!lastUserMessage) {
         return
     }
-    messages.push(createSyntheticUserMessage(lastUserMessage, prunableToolsContent))
+
+    // Unified Nudge Strategy: Piggyback
+    // We append the nudge to the last user message content instead of creating a synthetic message.
+    // This works for ALL models (Standard & Reasoning) and prevents:
+    // 1. Context fragmentation (synthetic messages breaking flow)
+    // 2. DeepSeek API 400 errors (interleaved thinking validation)
+    
+    logger.debug("Piggybacking prune nudge to last user message")
+    const lastPart = lastUserMessage.parts[lastUserMessage.parts.length - 1]
+    if (!lastPart) return
+
+    const nudgeContent = "\n\n" + prunableToolsContent
+
+    if (lastPart.type === "tool" && lastPart.state.status === "completed") {
+        lastPart.state.output += nudgeContent
+    } else if (lastPart.type === "text") {
+        lastPart.text += nudgeContent
+    }
 }
 
 export const prune = (
@@ -140,12 +157,10 @@ export const prune = (
     config: PluginConfig,
     messages: WithParts[],
 ): void => {
-    pruneToolOutputs(state, logger, messages)
-    pruneToolInputs(state, logger, messages)
-    pruneToolErrors(state, logger, messages)
+    pruneMessages(state, logger, messages)
 }
 
-const pruneToolOutputs = (state: SessionState, logger: Logger, messages: WithParts[]): void => {
+const pruneMessages = (state: SessionState, logger: Logger, messages: WithParts[]): void => {
     for (const msg of messages) {
         if (isMessageCompacted(state, msg)) {
             continue
@@ -158,74 +173,39 @@ const pruneToolOutputs = (state: SessionState, logger: Logger, messages: WithPar
             if (!state.prune.toolIds.includes(part.callID)) {
                 continue
             }
-            if (part.tool === "write" || part.tool === "edit") {
-                continue
-            }
-            if (part.state.status === "completed") {
-                part.state.output = PRUNED_TOOL_OUTPUT_REPLACEMENT
-            }
-        }
-    }
-}
 
-const pruneToolInputs = (state: SessionState, logger: Logger, messages: WithParts[]): void => {
-    for (const msg of messages) {
-        if (isMessageCompacted(state, msg)) {
-            continue
-        }
-
-        for (const part of msg.parts) {
-            if (part.type !== "tool") {
-                continue
-            }
-            if (!state.prune.toolIds.includes(part.callID)) {
-                continue
-            }
+            // Prune Outputs (skip write/edit)
             if (part.tool !== "write" && part.tool !== "edit") {
-                continue
-            }
-            if (part.state.status !== "completed") {
-                continue
-            }
-
-            if (part.tool === "write" && part.state.input?.content !== undefined) {
-                part.state.input.content = PRUNED_TOOL_INPUT_REPLACEMENT
-            }
-            if (part.tool === "edit") {
-                if (part.state.input?.oldString !== undefined) {
-                    part.state.input.oldString = PRUNED_TOOL_INPUT_REPLACEMENT
-                }
-                if (part.state.input?.newString !== undefined) {
-                    part.state.input.newString = PRUNED_TOOL_INPUT_REPLACEMENT
+                if (part.state.status === "completed") {
+                    part.state.output = PRUNED_TOOL_OUTPUT_REPLACEMENT
                 }
             }
-        }
-    }
-}
 
-const pruneToolErrors = (state: SessionState, logger: Logger, messages: WithParts[]): void => {
-    for (const msg of messages) {
-        if (isMessageCompacted(state, msg)) {
-            continue
-        }
-
-        for (const part of msg.parts) {
-            if (part.type !== "tool") {
-                continue
-            }
-            if (!state.prune.toolIds.includes(part.callID)) {
-                continue
-            }
-            if (part.state.status !== "error") {
-                continue
+            // Prune Inputs (only write/edit)
+            if (part.tool === "write" || part.tool === "edit") {
+                if (part.state.status === "completed") {
+                    if (part.tool === "write" && part.state.input?.content !== undefined) {
+                        part.state.input.content = PRUNED_TOOL_INPUT_REPLACEMENT
+                    }
+                    if (part.tool === "edit") {
+                        if (part.state.input?.oldString !== undefined) {
+                            part.state.input.oldString = PRUNED_TOOL_INPUT_REPLACEMENT
+                        }
+                        if (part.state.input?.newString !== undefined) {
+                            part.state.input.newString = PRUNED_TOOL_INPUT_REPLACEMENT
+                        }
+                    }
+                }
             }
 
-            // Prune all string inputs for errored tools
-            const input = part.state.input
-            if (input && typeof input === "object") {
-                for (const key of Object.keys(input)) {
-                    if (typeof input[key] === "string") {
-                        input[key] = PRUNED_TOOL_ERROR_INPUT_REPLACEMENT
+            // Prune Errors
+            if (part.state.status === "error") {
+                const input = part.state.input
+                if (input && typeof input === "object") {
+                    for (const key of Object.keys(input)) {
+                        if (typeof input[key] === "string") {
+                            input[key] = PRUNED_TOOL_ERROR_INPUT_REPLACEMENT
+                        }
                     }
                 }
             }
