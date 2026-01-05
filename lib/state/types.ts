@@ -12,7 +12,7 @@ export interface ToolParameterEntry {
     parameters: any
     status?: ToolStatus
     error?: string
-    turn: number // Which turn (step-start count) this tool was called on
+    turn: number
 }
 
 export interface SessionStats {
@@ -27,11 +27,12 @@ export interface Prune {
 export interface SessionState {
     sessionId: string | null
     isSubAgent: boolean
+    isInternalAgent: boolean
     prune: Prune
     stats: SessionStats
     toolParameters: Map<string, ToolParameterEntry>
     nudgeCounter: number
     lastToolPrune: boolean
     lastCompaction: number
-    currentTurn: number // Current turn count derived from step-start parts
+    currentTurn: number
 }

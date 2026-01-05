@@ -1,10 +1,10 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { getConfig } from "./lib/config"
 import { Logger } from "./lib/logger"
-import { loadPrompt } from "./lib/prompt"
+import { loadPrompt } from "./lib/prompts"
 import { createSessionState } from "./lib/state"
 import { createDiscardTool, createExtractTool } from "./lib/strategies"
-import { createChatMessageTransformHandler, createEventHandler } from "./lib/hooks"
+import { createChatMessageTransformHandler } from "./lib/hooks"
 
 const plugin: Plugin = (async (ctx) => {
     const config = getConfig(ctx)
@@ -30,6 +30,21 @@ const plugin: Plugin = (async (ctx) => {
             _input: unknown,
             output: { system: string[] },
         ) => {
+            const systemText = output.system.join("\n")
+            const internalAgentSignatures = [
+                "You are a title generator",
+                "You are a helpful AI assistant tasked with summarizing conversations",
+                "Summarize what was done in this conversation",
+            ]
+            if (internalAgentSignatures.some((sig) => systemText.includes(sig))) {
+                logger.info("Skipping DCP injection for internal agent")
+                state.isInternalAgent = true
+                return
+            }
+
+            // Reset flag for normal sessions
+            state.isInternalAgent = false
+
             const discardEnabled = config.tools.discard.enabled
             const extractEnabled = config.tools.extract.enabled
 
@@ -91,7 +106,6 @@ const plugin: Plugin = (async (ctx) => {
                 )
             }
         },
-        event: createEventHandler(ctx.client, config, state, logger, ctx.directory),
     }
 }) satisfies Plugin
 
