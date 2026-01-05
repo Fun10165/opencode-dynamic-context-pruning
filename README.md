@@ -41,8 +41,6 @@ DCP uses multiple tools and strategies to reduce context size:
 
 **Purge Errors** — Prunes tool inputs for tools that returned errors after a configurable number of turns (default: 4). Error messages are preserved for context, but the potentially large input content is removed. Runs automatically on every request with zero LLM cost.
 
-**On Idle Analysis** — Uses a language model to semantically analyze conversation context during idle periods and identify tool outputs that are no longer relevant. Disabled by default (legacy behavior).
-
 Your session history is never modified—DCP replaces pruned content with placeholders before sending requests to your LLM.
 
 ## Impact on Prompt Caching
@@ -108,7 +106,7 @@ DCP uses its own config file:
         },
         // Prune write tool inputs when the file has been subsequently read
         "supersedeWrites": {
-            "enabled": true,
+            "enabled": false,
         },
         // Prune tool inputs for errored tools after X turns
         "purgeErrors": {
@@ -117,18 +115,6 @@ DCP uses its own config file:
             "turns": 4,
             // Additional tools to protect from pruning
             "protectedTools": [],
-        },
-        // (Legacy) Run an LLM to analyze what tool calls are no longer relevant on idle
-        "onIdle": {
-            "enabled": false,
-            // Additional tools to protect from pruning
-            "protectedTools": [],
-            // Override model for analysis (format: "provider/model")
-            // "model": "anthropic/claude-haiku-4-5",
-            // Show toast notifications when model selection fails
-            "showModelErrorToasts": true,
-            // When true, fallback models are not permitted
-            "strictModelSelection": false,
         },
     },
 }
@@ -143,7 +129,7 @@ When enabled, turn protection prevents tool outputs from being pruned for a conf
 ### Protected Tools
 
 By default, these tools are always protected from pruning across all strategies:
-`task`, `todowrite`, `todoread`, `discard`, `extract`, `batch`
+`task`, `todowrite`, `todoread`, `discard`, `extract`, `batch`, `write`, `edit`
 
 The `protectedTools` arrays in each section add to this default list.
 
