@@ -15,7 +15,7 @@ export function createChatMessageTransformHandler(
     return async (input: {}, output: { messages: WithParts[] }) => {
         await checkSession(client, state, logger, output.messages)
 
-        if (state.isSubAgent || state.isInternalAgent) {
+        if (state.isSubAgent) {
             return
         }
 

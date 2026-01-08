@@ -37,13 +37,9 @@ const plugin: Plugin = (async (ctx) => {
                 "Summarize what was done in this conversation",
             ]
             if (internalAgentSignatures.some((sig) => systemText.includes(sig))) {
-                logger.info("Skipping DCP injection for internal agent")
-                state.isInternalAgent = true
+                logger.info("Skipping DCP system prompt injection for internal agent")
                 return
             }
-
-            // Reset flag for normal sessions
-            state.isInternalAgent = false
 
             const discardEnabled = config.tools.discard.enabled
             const extractEnabled = config.tools.extract.enabled
@@ -68,6 +64,21 @@ const plugin: Plugin = (async (ctx) => {
             logger,
             config,
         ),
+        "chat.message": async (
+            input: {
+                sessionID: string
+                agent?: string
+                model?: { providerID: string; modelID: string }
+                messageID?: string
+                variant?: string
+            },
+            _output: any,
+        ) => {
+            // Cache variant from real user messages (not synthetic)
+            // This avoids scanning all messages to find variant
+            state.variant = input.variant
+            logger.debug("Cached variant from chat.message hook", { variant: input.variant })
+        },
         tool: {
             ...(config.tools.discard.enabled && {
                 discard: createDiscardTool({
