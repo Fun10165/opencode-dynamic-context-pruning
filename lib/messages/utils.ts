@@ -5,6 +5,7 @@ import type { UserMessage } from "@opencode-ai/sdk/v2"
 
 const SYNTHETIC_MESSAGE_ID = "msg_01234567890123456789012345"
 const SYNTHETIC_PART_ID = "prt_01234567890123456789012345"
+const SYNTHETIC_CALL_ID = "call_01234567890123456789012345"
 
 export const createSyntheticUserMessage = (
     baseMessage: WithParts,
@@ -32,6 +33,53 @@ export const createSyntheticUserMessage = (
                 messageID: SYNTHETIC_MESSAGE_ID,
                 type: "text",
                 text: content,
+            },
+        ],
+    }
+}
+
+export const createSyntheticAssistantMessageWithToolPart = (
+    baseMessage: WithParts,
+    content: string,
+    variant?: string,
+): WithParts => {
+    const userInfo = baseMessage.info as UserMessage
+    const now = Date.now()
+    return {
+        info: {
+            id: SYNTHETIC_MESSAGE_ID,
+            sessionID: userInfo.sessionID,
+            role: "assistant",
+            agent: userInfo.agent || "code",
+            parentID: userInfo.id,
+            modelID: userInfo.model.modelID,
+            providerID: userInfo.model.providerID,
+            mode: "default",
+            path: {
+                cwd: "/",
+                root: "/",
+            },
+            time: { created: now, completed: now },
+            cost: 0,
+            tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+            ...(variant !== undefined && { variant }),
+        },
+        parts: [
+            {
+                id: SYNTHETIC_PART_ID,
+                sessionID: userInfo.sessionID,
+                messageID: SYNTHETIC_MESSAGE_ID,
+                type: "tool",
+                callID: SYNTHETIC_CALL_ID,
+                tool: "context_info",
+                state: {
+                    status: "completed",
+                    input: {},
+                    output: content,
+                    title: "Context Info",
+                    metadata: {},
+                    time: { start: now, end: now },
+                },
             },
         ],
     }
