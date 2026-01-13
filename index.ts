@@ -12,11 +12,6 @@ const plugin: Plugin = (async (ctx) => {
         return {}
     }
 
-    // Suppress AI SDK warnings
-    if (typeof globalThis !== "undefined") {
-        ;(globalThis as any).AI_SDK_LOG_WARNINGS = false
-    }
-
     const logger = new Logger(config.debug)
     const state = createSessionState()
 
