@@ -34,11 +34,11 @@ export function createSystemPromptHandler(
 
         let promptName: string
         if (discardEnabled && extractEnabled) {
-            promptName = "user/system/system-prompt-both"
+            promptName = "system/system-prompt-both"
         } else if (discardEnabled) {
-            promptName = "user/system/system-prompt-discard"
+            promptName = "system/system-prompt-discard"
         } else if (extractEnabled) {
-            promptName = "user/system/system-prompt-extract"
+            promptName = "system/system-prompt-extract"
         } else {
             return
         }

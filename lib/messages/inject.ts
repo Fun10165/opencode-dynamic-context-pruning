@@ -17,11 +17,11 @@ const getNudgeString = (config: PluginConfig): string => {
     const extractEnabled = config.tools.extract.enabled
 
     if (discardEnabled && extractEnabled) {
-        return loadPrompt(`user/nudge/nudge-both`)
+        return loadPrompt(`nudge/nudge-both`)
     } else if (discardEnabled) {
-        return loadPrompt(`user/nudge/nudge-discard`)
+        return loadPrompt(`nudge/nudge-discard`)
     } else if (extractEnabled) {
-        return loadPrompt(`user/nudge/nudge-extract`)
+        return loadPrompt(`nudge/nudge-extract`)
     }
     return ""
 }
