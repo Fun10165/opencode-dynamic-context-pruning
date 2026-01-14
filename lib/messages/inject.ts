@@ -3,7 +3,12 @@ import type { Logger } from "../logger"
 import type { PluginConfig } from "../config"
 import type { UserMessage } from "@opencode-ai/sdk/v2"
 import { loadPrompt } from "../prompts"
-import { extractParameterKey, buildToolIdList, createSyntheticUserMessage } from "./utils"
+import {
+    extractParameterKey,
+    buildToolIdList,
+    createSyntheticAssistantMessageWithToolPart,
+} from "./utils"
+import { getFilePathFromParameters, isProtectedFilePath } from "../protected-file-patterns"
 import { getLastUserMessage } from "../shared-utils"
 
 const getNudgeString = (config: PluginConfig): string => {
@@ -11,11 +16,11 @@ const getNudgeString = (config: PluginConfig): string => {
     const extractEnabled = config.tools.extract.enabled
 
     if (discardEnabled && extractEnabled) {
-        return loadPrompt(`user/nudge/nudge-both`)
+        return loadPrompt(`nudge/nudge-both`)
     } else if (discardEnabled) {
-        return loadPrompt(`user/nudge/nudge-discard`)
+        return loadPrompt(`nudge/nudge-discard`)
     } else if (extractEnabled) {
-        return loadPrompt(`user/nudge/nudge-extract`)
+        return loadPrompt(`nudge/nudge-extract`)
     }
     return ""
 }
@@ -59,6 +64,11 @@ const buildPrunableToolsList = (
 
         const allProtectedTools = config.tools.settings.protectedTools
         if (allProtectedTools.includes(toolParameterEntry.tool)) {
+            return
+        }
+
+        const filePath = getFilePathFromParameters(toolParameterEntry.parameters)
+        if (isProtectedFilePath(filePath, config.protectedFilePatterns)) {
             return
         }
 
@@ -132,7 +142,7 @@ export const insertPruneToolContext = (
     // This works for ALL models (Standard & Reasoning) and prevents:
     // 1. Context fragmentation (synthetic messages breaking flow)
     // 2. DeepSeek API 400 errors (interleaved thinking validation)
-    
+
     logger.debug("Piggybacking prune nudge to last user message")
     const lastPart = lastUserMessage.parts[lastUserMessage.parts.length - 1]
     if (!lastPart) return

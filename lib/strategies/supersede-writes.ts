@@ -2,6 +2,7 @@ import { PluginConfig } from "../config"
 import { Logger } from "../logger"
 import type { SessionState, WithParts } from "../state"
 import { buildToolIdList } from "../messages/utils"
+import { getFilePathFromParameters, isProtectedFilePath } from "../protected-file-patterns"
 import { calculateTokensSaved } from "./utils"
 
 /**
@@ -50,8 +51,12 @@ export const supersedeWrites = (
             continue
         }
 
-        const filePath = metadata.parameters?.filePath
+        const filePath = getFilePathFromParameters(metadata.parameters)
         if (!filePath) {
+            continue
+        }
+
+        if (isProtectedFilePath(filePath, config.protectedFilePatterns)) {
             continue
         }
 

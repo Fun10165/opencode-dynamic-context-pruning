@@ -1,21 +1,15 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { getConfig } from "./lib/config"
 import { Logger } from "./lib/logger"
-import { loadPrompt } from "./lib/prompts"
 import { createSessionState } from "./lib/state"
 import { createDiscardTool, createExtractTool } from "./lib/strategies"
-import { createChatMessageTransformHandler } from "./lib/hooks"
+import { createChatMessageTransformHandler, createSystemPromptHandler } from "./lib/hooks"
 
 const plugin: Plugin = (async (ctx) => {
     const config = getConfig(ctx)
 
     if (!config.enabled) {
         return {}
-    }
-
-    // Suppress AI SDK warnings
-    if (typeof globalThis !== "undefined") {
-        ;(globalThis as any).AI_SDK_LOG_WARNINGS = false
     }
 
     const logger = new Logger(config.debug)
@@ -26,38 +20,8 @@ const plugin: Plugin = (async (ctx) => {
     })
 
     return {
-        "experimental.chat.system.transform": async (
-            _input: unknown,
-            output: { system: string[] },
-        ) => {
-            const systemText = output.system.join("\n")
-            const internalAgentSignatures = [
-                "You are a title generator",
-                "You are a helpful AI assistant tasked with summarizing conversations",
-                "Summarize what was done in this conversation",
-            ]
-            if (internalAgentSignatures.some((sig) => systemText.includes(sig))) {
-                logger.info("Skipping DCP system prompt injection for internal agent")
-                return
-            }
+        "experimental.chat.system.transform": createSystemPromptHandler(state, logger, config),
 
-            const discardEnabled = config.tools.discard.enabled
-            const extractEnabled = config.tools.extract.enabled
-
-            let promptName: string
-            if (discardEnabled && extractEnabled) {
-                promptName = "user/system/system-prompt-both"
-            } else if (discardEnabled) {
-                promptName = "user/system/system-prompt-discard"
-            } else if (extractEnabled) {
-                promptName = "user/system/system-prompt-extract"
-            } else {
-                return
-            }
-
-            const syntheticPrompt = loadPrompt(promptName)
-            output.system.push(syntheticPrompt)
-        },
         "experimental.chat.messages.transform": createChatMessageTransformHandler(
             ctx.client,
             state,

@@ -9,6 +9,7 @@ import { saveSessionState } from "../state/persistence"
 import type { Logger } from "../logger"
 import { loadPrompt } from "../prompts"
 import { calculateTokensSaved, getCurrentParams } from "./utils"
+import { getFilePathFromParameters, isProtectedFilePath } from "../protected-file-patterns"
 
 const DISCARD_TOOL_DESCRIPTION = loadPrompt("discard-tool-spec")
 const EXTRACT_TOOL_DESCRIPTION = loadPrompt("extract-tool-spec")
@@ -85,6 +86,17 @@ async function executePruneOperation(
                 index,
                 id,
                 tool: metadata.tool,
+            })
+            return "Invalid IDs provided. Only use numeric IDs from the <prunable-tools> list."
+        }
+
+        const filePath = getFilePathFromParameters(metadata.parameters)
+        if (isProtectedFilePath(filePath, config.protectedFilePatterns)) {
+            logger.debug("Rejecting prune request - protected file path", {
+                index,
+                id,
+                tool: metadata.tool,
+                filePath,
             })
             return "Invalid IDs provided. Only use numeric IDs from the <prunable-tools> list."
         }

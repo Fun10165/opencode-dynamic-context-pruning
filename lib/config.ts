@@ -50,6 +50,7 @@ export interface PluginConfig {
     debug: boolean
     pruneNotification: "off" | "minimal" | "detailed"
     turnProtection: TurnProtection
+    protectedFilePatterns: string[]
     tools: Tools
     strategies: {
         deduplication: Deduplication
@@ -67,11 +68,14 @@ const DEFAULT_PROTECTED_TOOLS = [
     "batch",
     "write",
     "edit",
+    "plan_enter",
+    "plan_exit",
 ]
 
 // Valid config keys for validation against user config
 export const VALID_CONFIG_KEYS = new Set([
     // Top-level keys
+    "$schema",
     "enabled",
     "debug",
     "showUpdateToasts", // Deprecated but kept for backwards compatibility
@@ -79,6 +83,7 @@ export const VALID_CONFIG_KEYS = new Set([
     "turnProtection",
     "turnProtection.enabled",
     "turnProtection.turns",
+    "protectedFilePatterns",
     "tools",
     "tools.settings",
     "tools.settings.nudgeEnabled",
@@ -147,6 +152,22 @@ function validateConfigTypes(config: Record<string, any>): ValidationError[] {
                 key: "pruneNotification",
                 expected: '"off" | "minimal" | "detailed"',
                 actual: JSON.stringify(config.pruneNotification),
+            })
+        }
+    }
+
+    if (config.protectedFilePatterns !== undefined) {
+        if (!Array.isArray(config.protectedFilePatterns)) {
+            errors.push({
+                key: "protectedFilePatterns",
+                expected: "string[]",
+                actual: typeof config.protectedFilePatterns,
+            })
+        } else if (!config.protectedFilePatterns.every((v) => typeof v === "string")) {
+            errors.push({
+                key: "protectedFilePatterns",
+                expected: "string[]",
+                actual: "non-string entries",
             })
         }
     }
@@ -371,6 +392,7 @@ const defaultConfig: PluginConfig = {
         enabled: false,
         turns: 4,
     },
+    protectedFilePatterns: [],
     tools: {
         settings: {
             nudgeEnabled: true,
@@ -469,6 +491,7 @@ function createDefaultConfig(): void {
     }
 
     const configContent = `{
+  "$schema": "https://raw.githubusercontent.com/Opencode-DCP/opencode-dynamic-context-pruning/master/dcp.schema.json",
   // Enable or disable the plugin
   "enabled": true,
   // Enable debug logging to ~/.config/opencode/logs/dcp/
@@ -480,6 +503,9 @@ function createDefaultConfig(): void {
     "enabled": false,
     "turns": 4
   },
+  // Protect file operations from pruning via glob patterns
+  // Patterns match tool parameters.filePath (e.g. read/write/edit)
+  "protectedFilePatterns": [],
   // LLM-driven context pruning tools
   "tools": {
     // Shared settings for all prune tools
@@ -615,6 +641,7 @@ function deepCloneConfig(config: PluginConfig): PluginConfig {
     return {
         ...config,
         turnProtection: { ...config.turnProtection },
+        protectedFilePatterns: [...config.protectedFilePatterns],
         tools: {
             settings: {
                 ...config.tools.settings,
@@ -670,6 +697,12 @@ export function getConfig(ctx: PluginInput): PluginConfig {
                     enabled: result.data.turnProtection?.enabled ?? config.turnProtection.enabled,
                     turns: result.data.turnProtection?.turns ?? config.turnProtection.turns,
                 },
+                protectedFilePatterns: [
+                    ...new Set([
+                        ...config.protectedFilePatterns,
+                        ...(result.data.protectedFilePatterns ?? []),
+                    ]),
+                ],
                 tools: mergeTools(config.tools, result.data.tools as any),
                 strategies: mergeStrategies(config.strategies, result.data.strategies as any),
             }
@@ -706,6 +739,12 @@ export function getConfig(ctx: PluginInput): PluginConfig {
                     enabled: result.data.turnProtection?.enabled ?? config.turnProtection.enabled,
                     turns: result.data.turnProtection?.turns ?? config.turnProtection.turns,
                 },
+                protectedFilePatterns: [
+                    ...new Set([
+                        ...config.protectedFilePatterns,
+                        ...(result.data.protectedFilePatterns ?? []),
+                    ]),
+                ],
                 tools: mergeTools(config.tools, result.data.tools as any),
                 strategies: mergeStrategies(config.strategies, result.data.strategies as any),
             }
@@ -739,6 +778,12 @@ export function getConfig(ctx: PluginInput): PluginConfig {
                     enabled: result.data.turnProtection?.enabled ?? config.turnProtection.enabled,
                     turns: result.data.turnProtection?.turns ?? config.turnProtection.turns,
                 },
+                protectedFilePatterns: [
+                    ...new Set([
+                        ...config.protectedFilePatterns,
+                        ...(result.data.protectedFilePatterns ?? []),
+                    ]),
+                ],
                 tools: mergeTools(config.tools, result.data.tools as any),
                 strategies: mergeStrategies(config.strategies, result.data.strategies as any),
             }
